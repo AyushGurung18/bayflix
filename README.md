@@ -1,70 +1,59 @@
-# Getting Started with Create React App
+# Bayflix
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A TMDB-powered streaming browser with a modern, Netflix-style interface, built with Next.js (App Router). Firebase handles authentication; a Cloudflare Worker + R2 bucket serves the actual video stream played by the in-app player.
 
-## Available Scripts
+## Stack
 
-In the project directory, you can run:
+- **Next.js 16** (App Router, Turbopack) + React 19
+- **Tailwind CSS v4** for styling
+- **Firebase Auth** (email/password + Google) for sign in/up
+- **TMDB API**, proxied through a Next.js Route Handler so the API key never reaches the browser
+- **hls.js** for adaptive HLS playback of the Cloudflare Worker stream
+- **framer-motion** + **lucide-react** for motion and icons
 
-### `npm start`
+## Getting started
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+1. Install dependencies:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+   ```bash
+   npm install
+   ```
 
-### `npm test`
+2. Copy `.env.example` to `.env.local` and fill in the values:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+   ```bash
+   cp .env.example .env.local
+   ```
 
-### `npm run build`
+   - `TMDB_API_KEY` / `TMDB_BASE_URL` — get a free API key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api). This stays server-only.
+   - `NEXT_PUBLIC_FIREBASE_*` — from your Firebase project settings (Project settings → General → Your apps → Web app config). These are safe to expose to the client; Firebase access is controlled by security rules, not by secrecy of these values. Make sure **Email/Password** and **Google** sign-in providers are enabled in Firebase Authentication.
+   - `NEXT_PUBLIC_HLS_WORKER_BASE_URL` — the Cloudflare Worker that fronts the R2 bucket serving the demo HLS stream (defaults to the one already deployed).
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+3. Run the dev server:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+   ```bash
+   npm run dev
+   ```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+   Open [http://localhost:3000](http://localhost:3000).
 
-### `npm run eject`
+## App structure
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+- `app/page.js` — public marketing landing page.
+- `app/signin`, `app/signup` — Firebase auth pages.
+- `app/(app)/` — authenticated app shell (top navbar + `RequireAuth` guard):
+  - `browse` — the dashboard (hero banner + rows), analogous to Netflix's home.
+  - `search` — combined movie/TV search.
+  - `category/[slug]` — popular / trending / top-rated / upcoming / now-playing, unified into one page.
+  - `movie/[id]`, `tv/[id]` — detail pages (cast, recommendations, trailer, play).
+  - `profile` — account page.
+- `app/watch/[id]` — fullscreen custom HLS player (no nav chrome), still guarded by `RequireAuth`.
+- `app/api/tmdb/[...path]` — server-side proxy to TMDB.
+- `lib/` — Firebase client, auth context, TMDB client helpers.
+- `components/` — UI building blocks (Navbar, Hero, MovieRow, MovieCard, TrailerModal, NetflixPlayer, etc.).
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Notes on the video player
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+The Cloudflare Worker + R2 bucket currently host a single demo stream (`testvideo/master.m3u8` and per-quality variants). Every "Play" button routes to `/watch/[id]` and plays that same stream — the title/id are used for the on-screen metadata and for wiring up trailers/detail pages, not for picking a different file server-side. Swap in per-title HLS assets on the Worker/R2 side and this page will pick them up without any frontend changes needed beyond the URL scheme in `components/NetflixPlayer.js`.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Trailers are separate: they're fetched live from TMDB's `/videos` endpoint and played back via an embedded YouTube iframe in a modal (or muted in the background of the hero banner) — they never touch the Cloudflare Worker.
