@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ChevronDown } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/lib/auth-context";
@@ -63,22 +64,33 @@ export default function Navbar() {
       )}
     >
       <div className="flex items-center gap-8">
-        <Link href="/browse" className="text-2xl font-black italic tracking-tight text-brand">
-          BAYFLIX
-        </Link>
+        <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
+          <Link href="/browse" className="text-2xl font-black italic tracking-tight text-brand">
+            BAYFLIX
+          </Link>
+        </motion.div>
         <nav className="hidden items-center gap-5 text-sm md:flex">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={clsx(
-                "transition hover:text-neutral-300",
-                pathname === link.href ? "font-semibold text-white" : "text-neutral-300"
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {NAV_LINKS.map((link) => {
+            const active = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="relative py-1 transition hover:text-neutral-300"
+              >
+                <span className={clsx(active ? "font-semibold text-white" : "text-neutral-300")}>
+                  {link.label}
+                </span>
+                {active && (
+                  <motion.span
+                    layoutId="nav-active-underline"
+                    className="absolute -bottom-1 left-0 right-0 h-0.5 rounded bg-brand"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
+              </Link>
+            );
+          })}
         </nav>
       </div>
 
@@ -97,22 +109,35 @@ export default function Navbar() {
               className="w-full bg-transparent py-1.5 text-sm text-white outline-none placeholder-neutral-400"
             />
           </div>
-          <button
+          <motion.button
+            whileTap={{ scale: 0.85 }}
             type="button"
             onClick={() => setSearchOpen((v) => !v)}
             className="p-1.5 text-white"
             aria-label="Toggle search"
           >
-            {searchOpen ? <X size={20} /> : <Search size={20} />}
-          </button>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={searchOpen ? "close" : "search"}
+                initial={{ opacity: 0, rotate: -45 }}
+                animate={{ opacity: 1, rotate: 0 }}
+                exit={{ opacity: 0, rotate: 45 }}
+                transition={{ duration: 0.15 }}
+                className="block"
+              >
+                {searchOpen ? <X size={20} /> : <Search size={20} />}
+              </motion.span>
+            </AnimatePresence>
+          </motion.button>
         </form>
 
         <div ref={menuRef} className="relative">
-          <button
-            onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-1.5"
-          >
-            <span className="relative h-8 w-8 overflow-hidden rounded bg-brand">
+          <button onClick={() => setMenuOpen((v) => !v)} className="flex items-center gap-1.5">
+            <motion.span
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.94 }}
+              className="relative h-8 w-8 overflow-hidden rounded bg-brand"
+            >
               {currentUser?.photoURL ? (
                 <Image src={currentUser.photoURL} alt="" fill className="object-cover" />
               ) : (
@@ -120,30 +145,38 @@ export default function Navbar() {
                   {(currentUser?.displayName || currentUser?.email || "U")[0].toUpperCase()}
                 </span>
               )}
-            </span>
+            </motion.span>
             <ChevronDown
               size={16}
               className={clsx("hidden text-white transition sm:block", menuOpen && "rotate-180")}
             />
           </button>
 
-          {menuOpen && (
-            <div className="absolute right-0 top-full mt-3 w-48 animate-scale-in rounded-sm border border-neutral-700 bg-ink-raised/95 py-2 text-sm shadow-xl">
-              <Link
-                href="/profile"
-                className="block px-4 py-2 text-neutral-200 hover:bg-white/5"
-                onClick={() => setMenuOpen(false)}
+          <AnimatePresence>
+            {menuOpen && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: -6 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -6 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 top-full mt-3 w-48 rounded-sm border border-neutral-700 bg-ink-raised/95 py-2 text-sm shadow-xl"
               >
-                Profile
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="block w-full px-4 py-2 text-left text-neutral-200 hover:bg-white/5"
-              >
-                Sign out of Bayflix
-              </button>
-            </div>
-          )}
+                <Link
+                  href="/profile"
+                  className="block px-4 py-2 text-neutral-200 transition hover:bg-white/5"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Profile
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="block w-full px-4 py-2 text-left text-neutral-200 transition hover:bg-white/5"
+                >
+                  Sign out of Bayflix
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </header>

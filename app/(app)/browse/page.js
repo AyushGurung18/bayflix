@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Hero from "@/components/Hero";
 import MovieRow from "@/components/MovieRow";
 import TrailerModal from "@/components/TrailerModal";
-import LoadingScreen from "@/components/LoadingScreen";
+import { SkeletonBrowse } from "@/components/Skeletons";
 import { useTrailer } from "@/lib/use-trailer";
 import {
   fetchPopularMovies,
@@ -67,7 +67,7 @@ export default function BrowsePage() {
     };
   }, []);
 
-  if (!rows) return <LoadingScreen />;
+  if (!rows) return <SkeletonBrowse />;
 
   return (
     <div className="pb-16">

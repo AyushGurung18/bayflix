@@ -2,9 +2,11 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 import { Search as SearchIcon } from "lucide-react";
 import MovieCard from "@/components/MovieCard";
 import TrailerModal from "@/components/TrailerModal";
+import { SkeletonGrid } from "@/components/Skeletons";
 import { useTrailer } from "@/lib/use-trailer";
 import { searchMulti } from "@/lib/tmdb";
 
@@ -65,7 +67,7 @@ function SearchPageContent() {
         />
       </div>
 
-      {loading && <p className="text-center text-neutral-500">Searching…</p>}
+      {loading && <SkeletonGrid count={14} />}
 
       {!loading && debouncedQuery.trim() && results.length === 0 && (
         <p className="text-center text-neutral-500">
@@ -73,26 +75,35 @@ function SearchPageContent() {
         </p>
       )}
 
-      {movies.length > 0 && (
-        <section className="mb-10">
+      {!loading && movies.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mb-10"
+        >
           <h2 className="mb-4 text-xl font-semibold">Movies</h2>
           <div className="flex flex-wrap gap-3 sm:gap-4">
             {movies.map((item) => (
               <MovieCard key={item.id} item={item} mediaType="movie" onTrailer={openTrailer} />
             ))}
           </div>
-        </section>
+        </motion.section>
       )}
 
-      {series.length > 0 && (
-        <section>
+      {!loading && series.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.05 }}
+        >
           <h2 className="mb-4 text-xl font-semibold">TV Series</h2>
           <div className="flex flex-wrap gap-3 sm:gap-4">
             {series.map((item) => (
               <MovieCard key={item.id} item={item} mediaType="tv" onTrailer={openTrailer} />
             ))}
           </div>
-        </section>
+        </motion.section>
       )}
 
       <TrailerModal videoKey={trailer?.key} title={trailer?.title} onClose={closeTrailer} />

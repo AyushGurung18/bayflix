@@ -3,7 +3,7 @@
 // to (see components/NetflixPlayer.js / NEXT_PUBLIC_HLS_WORKER_BASE_URL) —
 // it is deployed separately from the Next.js app (`wrangler deploy`), not
 // part of this repo's build.
-export default {
+const worker = {
   async fetch(request, env) {
     const url = new URL(request.url);
     const key = url.pathname.replace(/^\/+/, "");
@@ -30,3 +30,5 @@ function getMimeType(key) {
   if (key.endsWith(".ts")) return "video/mp2t";
   return "application/octet-stream";
 }
+
+export default worker;

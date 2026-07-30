@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Play, Clapperboard, Star } from "lucide-react";
-import LoadingScreen from "./LoadingScreen";
+import { SkeletonDetail } from "./Skeletons";
 import MovieRow from "./MovieRow";
 import TrailerModal from "./TrailerModal";
 import { useTrailer } from "@/lib/use-trailer";
@@ -55,7 +55,7 @@ export default function MediaDetail({ id, mediaType }) {
       </div>
     );
   }
-  if (!data) return <LoadingScreen />;
+  if (!data) return <SkeletonDetail />;
 
   const isTV = mediaType === "tv";
   const title = data.title || data.name;

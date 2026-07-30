@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 import { notFound } from "next/navigation";
 import MovieCard from "@/components/MovieCard";
 import TrailerModal from "@/components/TrailerModal";
-import LoadingScreen from "@/components/LoadingScreen";
+import { SkeletonGrid } from "@/components/Skeletons";
 import { useTrailer } from "@/lib/use-trailer";
 import { CATEGORIES } from "@/lib/tmdb";
 
@@ -31,7 +31,12 @@ function MediaSection({ title, mediaType, fetcher }) {
   }, [page]);
 
   if (items === null) {
-    return <div className="h-40 animate-pulse rounded-md bg-ink-card/40" />;
+    return (
+      <section className="mb-10">
+        <h2 className="mb-4 text-xl font-semibold sm:text-2xl">{title}</h2>
+        <SkeletonGrid />
+      </section>
+    );
   }
 
   return (

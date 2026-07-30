@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Hls from "hls.js";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Play,
   Pause,
@@ -59,6 +60,8 @@ export default function NetflixPlayer({ title = "Bayflix", subtitle = "", backHr
   const [subtitleTracks, setSubtitleTracks] = useState([]);
   const [currentSubtitleTrack, setCurrentSubtitleTrack] = useState(-1);
   const [networkCondition, setNetworkCondition] = useState("good");
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubPercent, setScrubPercent] = useState(0);
 
   const getVideoUrl = (quality) =>
     quality === "auto"
@@ -254,10 +257,10 @@ export default function NetflixPlayer({ title = "Bayflix", subtitle = "", backHr
   }, [currentQuality]);
 
   useEffect(() => {
-    if (!isPlaying || showSettings) return;
+    if (!isPlaying || showSettings || isScrubbing) return;
     controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3000);
     return () => clearTimeout(controlsTimeoutRef.current);
-  }, [isPlaying, showControls, showSettings]);
+  }, [isPlaying, showControls, showSettings, isScrubbing]);
 
   const togglePlayPause = useCallback(() => {
     const video = videoRef.current;
@@ -323,12 +326,50 @@ export default function NetflixPlayer({ title = "Bayflix", subtitle = "", backHr
     };
   }, [togglePlayPause, toggleFullscreen, skipTime, toggleMute]);
 
-  const handleSeek = (e) => {
-    const video = videoRef.current;
+  const percentFromClientX = useCallback((clientX) => {
     const rect = progressBarRef.current.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    video.currentTime = percent * duration;
+    return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+  }, []);
+
+  const beginScrub = useCallback(
+    (clientX) => {
+      const video = videoRef.current;
+      if (!video || !duration) return;
+      const percent = percentFromClientX(clientX);
+      setIsScrubbing(true);
+      setScrubPercent(percent);
+      video.currentTime = percent * duration;
+    },
+    [duration, percentFromClientX]
+  );
+
+  const handleProgressPointerDown = (e) => {
+    e.stopPropagation();
+    beginScrub(e.clientX);
   };
+
+  // Dragging needs window-level listeners: once the pointer leaves the thin
+  // progress bar (which it will, on almost every real drag), the element's
+  // own onPointerMove would stop firing — the window keeps tracking it
+  // wherever the cursor goes until pointerup.
+  useEffect(() => {
+    if (!isScrubbing) return;
+    const video = videoRef.current;
+
+    const handleMove = (e) => {
+      const percent = percentFromClientX(e.clientX);
+      setScrubPercent(percent);
+      if (video && duration) video.currentTime = percent * duration;
+    };
+    const handleUp = () => setIsScrubbing(false);
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+    };
+  }, [isScrubbing, duration, percentFromClientX]);
 
   const changeQuality = (newQuality) => {
     if (newQuality === currentQuality) return;
@@ -403,26 +444,51 @@ export default function NetflixPlayer({ title = "Bayflix", subtitle = "", backHr
         </div>
       )}
 
-      {!isPlaying && !isLoading && !error && (
-        <button
-          onClick={togglePlayPause}
-          className="absolute inset-0 z-[100] flex items-center justify-center"
-          aria-label="Play"
-        >
-          <span className="flex h-24 w-24 items-center justify-center rounded-full bg-black/60 transition hover:scale-105 hover:bg-black/80">
-            <Play size={48} fill="white" className="ml-1" />
-          </span>
-        </button>
-      )}
+      <AnimatePresence>
+        {!isPlaying && !isLoading && !error && (
+          <motion.button
+            key="center-play"
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.7 }}
+            transition={{ duration: 0.18 }}
+            onClick={togglePlayPause}
+            className="absolute inset-0 z-[100] flex items-center justify-center"
+            aria-label="Play"
+          >
+            <motion.span
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.94 }}
+              className="flex h-24 w-24 items-center justify-center rounded-full bg-black/60 shadow-2xl"
+            >
+              <Play size={48} fill="white" className="ml-1" />
+            </motion.span>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
+      {/*
+        This wrapper is deliberately pointer-events-none: it only paints the
+        gradient. Real hit-testing happens on the top/bottom bars below (each
+        opts back into pointer-events when controls are visible), so a click
+        anywhere in the empty middle of the screen falls through to the
+        <video> element underneath instead of being swallowed by an invisible
+        full-screen div — that was why clicking the video to play/pause did
+        nothing.
+      */}
       <div
-        className="absolute inset-0 z-[200] bg-gradient-to-t from-black/80 via-transparent to-black/80 transition-opacity duration-300"
-        style={{ opacity: showControls ? 1 : 0, pointerEvents: showControls ? "auto" : "none" }}
+        className="pointer-events-none absolute inset-0 z-[200] bg-gradient-to-t from-black/80 via-transparent to-black/80 transition-opacity duration-300"
+        style={{ opacity: showControls ? 1 : 0 }}
       >
-        <div className="flex items-start justify-between p-4 sm:p-6">
+        <div
+          className={`flex items-start justify-between p-4 transition-[opacity] sm:p-6 ${
+            showControls ? "pointer-events-auto" : "pointer-events-none"
+          }`}
+        >
           <div className="flex items-center gap-3">
             <Link
               href={backHref}
+              onClick={(e) => e.stopPropagation()}
               className="flex h-10 w-10 items-center justify-center rounded-full text-white transition hover:bg-white/10"
               aria-label="Back"
             >
@@ -444,25 +510,48 @@ export default function NetflixPlayer({ title = "Bayflix", subtitle = "", backHr
           </div>
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6">
+        <div
+          className={`absolute inset-x-0 bottom-0 p-4 sm:p-6 ${
+            showControls ? "pointer-events-auto" : "pointer-events-none"
+          }`}
+        >
           <div
             ref={progressBarRef}
-            onClick={handleSeek}
-            className="group/bar mb-4 h-1 w-full cursor-pointer rounded bg-white/30"
+            onPointerDown={handleProgressPointerDown}
+            className="group/bar relative mb-4 h-1.5 w-full touch-none rounded bg-white/30 py-2"
+            style={{ marginTop: "-0.5rem" }}
           >
-            <div
-              className="relative h-full rounded bg-brand transition-[height] group-hover/bar:h-1.5"
-              style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }}
-            >
-              <span className="absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-brand opacity-0 group-hover/bar:opacity-100" />
+            <div className="pointer-events-none h-1 w-full rounded bg-white/30 group-hover/bar:h-1.5">
+              <div
+                className="relative h-full rounded bg-brand"
+                style={{
+                  width: `${(isScrubbing ? scrubPercent : duration ? currentTime / duration : 0) * 100}%`,
+                }}
+              >
+                {isScrubbing && (
+                  <span className="absolute -top-8 right-0 translate-x-1/2 rounded bg-black/90 px-2 py-1 text-xs font-medium text-white">
+                    {formatTime(scrubPercent * duration)}
+                  </span>
+                )}
+                <span
+                  className={`absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 translate-x-1/2 rounded-full bg-brand shadow transition-opacity ${
+                    isScrubbing ? "opacity-100" : "opacity-0 group-hover/bar:opacity-100"
+                  }`}
+                />
+              </div>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-y-2">
             <div className="flex items-center gap-3 sm:gap-4">
-              <button onClick={togglePlayPause} className="text-white" title="Play/Pause (Space)">
+              <motion.button
+                whileTap={{ scale: 0.85 }}
+                onClick={togglePlayPause}
+                className="text-white"
+                title="Play/Pause (Space)"
+              >
                 {isPlaying ? <Pause size={28} fill="white" /> : <Play size={28} fill="white" />}
-              </button>
+              </motion.button>
               <button onClick={() => skipTime(-10)} className="text-white" title="Rewind 10s">
                 <SkipBack size={20} />
               </button>
@@ -529,8 +618,14 @@ export default function NetflixPlayer({ title = "Bayflix", subtitle = "", backHr
         </div>
       </div>
 
+      <AnimatePresence>
       {showSettings && (
-        <div
+        <motion.div
+          key="settings-panel"
+          initial={{ opacity: 0, scale: 0.95, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 8 }}
+          transition={{ duration: 0.15 }}
           onClick={(e) => e.stopPropagation()}
           className="absolute bottom-20 right-4 z-[300] w-56 rounded-md border border-white/10 bg-black/95 p-4 backdrop-blur sm:right-6"
         >
@@ -562,8 +657,9 @@ export default function NetflixPlayer({ title = "Bayflix", subtitle = "", backHr
               onSelect={changeSubtitleTrack}
             />
           )}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }
