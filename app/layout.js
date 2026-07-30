@@ -12,9 +12,6 @@ export const metadata = {
   title: "Bayflix — Unlimited movies, TV shows and more",
   description:
     "Bayflix is a TMDB-powered streaming browser. Watch anywhere, cancel anytime.",
-  icons: {
-    icon: "/favicon.ico",
-  },
   manifest: "/manifest.json",
 };
 
