@@ -1,0 +1,35 @@
+name = "bayflix-api"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers AI — generates embeddings (@cf/baai/bge-base-en-v1.5, 768 dims) for
+# semantic search / recommendations. No separate API key needed; it's billed
+# to this Cloudflare account like the rest of these bindings.
+[ai]
+binding = "AI"
+
+# Create with: wrangler d1 create bayflix-db
+# Then paste the returned database_id below and run:
+#   wrangler d1 execute bayflix-db --remote --file=./schema.sql
+[[d1_databases]]
+binding = "DB"
+database_name = "bayflix-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# Create with: wrangler vectorize create bayflix-index --dimensions=768 --metric=cosine
+[[vectorize]]
+binding = "VECTORIZE_INDEX"
+index_name = "bayflix-index"
+
+[vars]
+# Your Firebase project ID (same as NEXT_PUBLIC_FIREBASE_PROJECT_ID in the
+# Next.js app) — used to verify Firebase ID tokens (audience/issuer check).
+FIREBASE_PROJECT_ID = "REPLACE_WITH_YOUR_FIREBASE_PROJECT_ID"
+
+# Secrets (not committed — set via CLI):
+#   wrangler secret put ADMIN_KEY
+# ADMIN_KEY protects POST /admin/index, the optional bulk catalog-seeding
+# endpoint. Everything else (watchlist/watched/search/recommendations) is
+# either public read or authenticated via a verified Firebase ID token, no
+# secret needed.

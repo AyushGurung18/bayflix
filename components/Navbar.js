@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ChevronDown } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/lib/auth-context";
+import { isBayflixApiConfigured } from "@/lib/bayflix-api";
 
 const NAV_LINKS = [
   { href: "/browse", label: "Home" },
@@ -15,6 +16,7 @@ const NAV_LINKS = [
   { href: "/category/trending", label: "Trending" },
   { href: "/category/top-rated", label: "Top Rated" },
   { href: "/category/upcoming", label: "Upcoming" },
+  ...(isBayflixApiConfigured() ? [{ href: "/watchlist", label: "My List" }] : []),
 ];
 
 export default function Navbar() {

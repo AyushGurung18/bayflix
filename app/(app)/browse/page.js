@@ -6,6 +6,8 @@ import MovieRow from "@/components/MovieRow";
 import TrailerModal from "@/components/TrailerModal";
 import { SkeletonBrowse } from "@/components/Skeletons";
 import { useTrailer } from "@/lib/use-trailer";
+import { useWatchStatus } from "@/lib/watch-status-context";
+import { getRecommendations } from "@/lib/bayflix-api";
 import {
   fetchPopularMovies,
   fetchTrendingMovies,
@@ -20,7 +22,20 @@ import {
 export default function BrowsePage() {
   const [rows, setRows] = useState(null);
   const [heroMovie, setHeroMovie] = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
+  const { configured, watchlist, watched } = useWatchStatus();
+
+  useEffect(() => {
+    if (!configured || watched.length === 0) return;
+    let cancelled = false;
+    getRecommendations().then((results) => !cancelled && setRecommendations(results));
+    return () => {
+      cancelled = true;
+    };
+    // Deliberately depends on watched.length (not the watched array itself)
+    // so this only re-fires when a title is actually added, not every render.
+  }, [configured, watched.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +89,17 @@ export default function BrowsePage() {
       <Hero item={heroMovie} mediaType="movie" onTrailer={openTrailerDirect} />
 
       <div className="relative z-10 -mt-10 sm:-mt-16">
+        {configured && recommendations.length > 0 && (
+          <MovieRow title="Recommended For You" items={recommendations} onTrailer={openTrailer} />
+        )}
+        {configured && watchlist.length > 0 && (
+          <MovieRow
+            title="My List"
+            items={watchlist}
+            exploreHref="/watchlist"
+            onTrailer={openTrailer}
+          />
+        )}
         <MovieRow
           title="Trending Now"
           items={rows.trending}

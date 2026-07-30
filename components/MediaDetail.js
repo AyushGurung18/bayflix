@@ -7,8 +7,11 @@ import { Play, Clapperboard, Star } from "lucide-react";
 import { SkeletonDetail } from "./Skeletons";
 import MovieRow from "./MovieRow";
 import TrailerModal from "./TrailerModal";
+import RatingsBadges from "./RatingsBadges";
+import WatchlistButton from "./WatchlistButton";
 import { useTrailer } from "@/lib/use-trailer";
 import { backdropUrl, posterUrl, pickTrailer, fetchMovieDetails, fetchTVDetails } from "@/lib/tmdb";
+import { fetchOmdbRatings } from "@/lib/omdb";
 
 function formatRuntime(minutes) {
   if (!minutes) return null;
@@ -25,6 +28,7 @@ function formatMoney(amount) {
 export default function MediaDetail({ id, mediaType }) {
   const [data, setData] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [ratings, setRatings] = useState(null);
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
 
   useEffect(() => {
@@ -47,6 +51,18 @@ export default function MediaDetail({ id, mediaType }) {
       cancelled = true;
     };
   }, [id, mediaType]);
+
+  useEffect(() => {
+    if (!data) return;
+    let cancelled = false;
+    const imdbId = data.imdb_id || data.external_ids?.imdb_id;
+    const title = data.title || data.name;
+    const year = (data.release_date || data.first_air_date || "").slice(0, 4);
+    fetchOmdbRatings({ imdbId, title, year }).then((r) => !cancelled && setRatings(r));
+    return () => {
+      cancelled = true;
+    };
+  }, [data]);
 
   if (notFound) {
     return (
@@ -111,6 +127,10 @@ export default function MediaDetail({ id, mediaType }) {
             )}
           </div>
 
+          <div className="mt-3">
+            <RatingsBadges ratings={ratings} />
+          </div>
+
           {data.genres?.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {data.genres.map((g) => (
@@ -143,6 +163,7 @@ export default function MediaDetail({ id, mediaType }) {
                 <Clapperboard size={18} /> Watch Trailer
               </button>
             )}
+            <WatchlistButton item={data} mediaType={mediaType} variant="pill" />
           </div>
 
           {!isTV && (

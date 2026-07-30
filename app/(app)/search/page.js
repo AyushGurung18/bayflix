@@ -3,12 +3,13 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Search as SearchIcon } from "lucide-react";
+import { Search as SearchIcon, Sparkles } from "lucide-react";
 import MovieCard from "@/components/MovieCard";
 import TrailerModal from "@/components/TrailerModal";
 import { SkeletonGrid } from "@/components/Skeletons";
 import { useTrailer } from "@/lib/use-trailer";
 import { searchMulti } from "@/lib/tmdb";
+import { isBayflixApiConfigured, semanticSearch } from "@/lib/bayflix-api";
 
 function useDebouncedValue(value, delay) {
   const [debounced, setDebounced] = useState(value);
@@ -24,8 +25,10 @@ function SearchPageContent() {
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [aiMode, setAiMode] = useState(false);
   const debouncedQuery = useDebouncedValue(query, 350);
   const { trailer, openTrailer, closeTrailer } = useTrailer();
+  const aiAvailable = isBayflixApiConfigured();
 
   useEffect(() => {
     const trimmed = debouncedQuery.trim();
@@ -34,17 +37,22 @@ function SearchPageContent() {
     // Kicking off the loading indicator for the async fetch below belongs here, not in render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
-    searchMulti(trimmed)
-      .then((data) => {
-        if (cancelled) return;
-        setResults((data.results ?? []).filter((r) => r.media_type === "movie" || r.media_type === "tv"));
-      })
+
+    const request =
+      aiMode && aiAvailable
+        ? semanticSearch(trimmed)
+        : searchMulti(trimmed).then(
+            (data) => (data.results ?? []).filter((r) => r.media_type === "movie" || r.media_type === "tv")
+          );
+
+    request
+      .then((list) => !cancelled && setResults(list))
       .catch((err) => console.error(err))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery]);
+  }, [debouncedQuery, aiMode, aiAvailable]);
 
   const { movies, series } = useMemo(() => {
     if (!debouncedQuery.trim()) return { movies: [], series: [] };
@@ -56,16 +64,37 @@ function SearchPageContent() {
 
   return (
     <div className="px-4 pb-16 pt-8 sm:px-10">
-      <div className="relative mx-auto mb-10 max-w-xl">
-        <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={20} />
-        <input
-          autoFocus
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search for movies and TV shows"
-          className="w-full rounded-full border border-neutral-700 bg-ink-card py-3.5 pl-12 pr-4 text-base text-white outline-none placeholder-neutral-500 focus:border-neutral-400"
-        />
+      <div className="mx-auto mb-4 max-w-xl">
+        <div className="relative">
+          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={20} />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={aiMode ? "Describe what you're in the mood for…" : "Search for movies and TV shows"}
+            className="w-full rounded-full border border-neutral-700 bg-ink-card py-3.5 pl-12 pr-4 text-base text-white outline-none placeholder-neutral-500 focus:border-neutral-400"
+          />
+        </div>
+
+        {aiAvailable && (
+          <button
+            onClick={() => setAiMode((v) => !v)}
+            className={`mt-3 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+              aiMode
+                ? "border-brand bg-brand/10 text-brand"
+                : "border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
+            }`}
+          >
+            <Sparkles size={13} /> AI Search {aiMode ? "on" : "off"}
+          </button>
+        )}
       </div>
+      {aiMode && aiAvailable && (
+        <p className="mx-auto mb-6 max-w-xl text-center text-xs text-neutral-500">
+          Semantic search — try something like &ldquo;time travel movies with a twist ending&rdquo;
+          instead of an exact title.
+        </p>
+      )}
 
       {loading && <SkeletonGrid count={14} />}
 

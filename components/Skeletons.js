@@ -18,7 +18,7 @@ export function SkeletonHero() {
 
 export function SkeletonCard() {
   return (
-    <div className="relative aspect-[2/3] w-[150px] shrink-0 overflow-hidden rounded-md sm:w-[190px]">
+    <div className="relative aspect-[2/3] w-[180px] shrink-0 overflow-hidden rounded-md sm:w-[230px]">
       <div className="skeleton-shimmer absolute inset-0" />
     </div>
   );
