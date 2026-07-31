@@ -1,28 +1,36 @@
 "use client";
 
 const IMDB_YELLOW = "#F5C518";
+const TMDB_GREEN = "#01D277";
 
-export default function RatingsBadges({ ratings }) {
-  if (!ratings) return null;
+export default function RatingsBadges({ ratings, tmdbScore }) {
+  const tmdbBadge = tmdbScore > 0 && <Badge label="TMDB" value={`${tmdbScore.toFixed(1)}/10`} accent={TMDB_GREEN} />;
+
+  if (!ratings) {
+    return tmdbBadge ? <div className="flex flex-wrap items-center gap-2">{tmdbBadge}</div> : null;
+  }
 
   if (ratings.configured === false) {
     return (
-      <div className="flex flex-wrap items-center gap-2 opacity-60">
-        <Badge label="IMDb" value="—" hint="Add OMDB_API_KEY to enable" />
-        <Badge label="RT" value="—" hint="Add OMDB_API_KEY to enable" />
-        <Badge label="Metacritic" value="—" hint="Add OMDB_API_KEY to enable" />
+      <div className="flex flex-wrap items-center gap-2">
+        {tmdbBadge}
+        <span className="opacity-60">
+          <Badge label="IMDb" value="—" hint="OMDB_API_KEY not set on the worker yet" />
+        </span>
+        <span className="opacity-60">
+          <Badge label="RT" value="—" hint="OMDB_API_KEY not set on the worker yet" />
+        </span>
       </div>
     );
   }
 
   const { imdbRating, rottenTomatoes, metacritic } = ratings;
-  if (!imdbRating && !rottenTomatoes && !metacritic) return null;
+  if (!tmdbBadge && !imdbRating && !rottenTomatoes && !metacritic) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {imdbRating && (
-        <Badge label="IMDb" value={`${imdbRating}/10`} accent={IMDB_YELLOW} />
-      )}
+      {tmdbBadge}
+      {imdbRating && <Badge label="IMDb" value={`${imdbRating}/10`} accent={IMDB_YELLOW} />}
       {rottenTomatoes && <Badge label="RT" value={rottenTomatoes} accent="#FA320A" />}
       {metacritic && <Badge label="Metacritic" value={`${metacritic}/100`} accent="#54B848" />}
     </div>

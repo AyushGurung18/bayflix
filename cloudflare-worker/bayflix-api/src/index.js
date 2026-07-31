@@ -1,5 +1,6 @@
 import { verifyFirebaseToken } from "./verifyFirebaseToken.js";
-import { embedText, indexTitle, matchToCardItem, tasteVectorFromWatched, vectorId } from "./embeddings.js";
+import { embedText, indexTitle, matchToCardItem, buildTasteVector, vectorId } from "./embeddings.js";
+import { getCachedRatings } from "./omdb.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -128,6 +129,104 @@ async function handleRelationRoute(request, env, table) {
   return json({ error: "Method not allowed" }, 405);
 }
 
+// Public — shared crowd ratings, D1-cached (see src/omdb.js) so OMDb only
+// ever gets called once per title regardless of view count.
+async function handleRatingsLookup(request, env) {
+  const url = new URL(request.url);
+  const tmdbId = Number(url.searchParams.get("tmdbId"));
+  const mediaType = url.searchParams.get("mediaType") === "tv" ? "tv" : "movie";
+  const imdbId = url.searchParams.get("imdbId") || null;
+  const title = url.searchParams.get("title") || null;
+  const year = url.searchParams.get("year") || null;
+
+  if (!tmdbId || (!imdbId && !title)) {
+    return json({ error: "tmdbId and (imdbId or title) are required" }, 400);
+  }
+
+  const result = await getCachedRatings(env, { tmdbId, mediaType, imdbId, title, year });
+  return json(result);
+}
+
+async function handleMyRatings(request, env) {
+  const uid = await requireUser(request, env);
+
+  if (request.method === "GET") {
+    const { results } = await env.DB.prepare(
+      `SELECT tmdb_id, media_type, title, overview, poster_path, backdrop_path, release_date, vote_average, stars, rated_at
+       FROM user_ratings WHERE user_id = ? ORDER BY rated_at DESC`
+    )
+      .bind(uid)
+      .all();
+    return json({
+      results: results.map((row) => ({
+        id: row.tmdb_id,
+        media_type: row.media_type,
+        title: row.media_type === "movie" ? row.title : undefined,
+        name: row.media_type === "tv" ? row.title : undefined,
+        overview: row.overview,
+        poster_path: row.poster_path,
+        backdrop_path: row.backdrop_path,
+        release_date: row.media_type === "movie" ? row.release_date : undefined,
+        first_air_date: row.media_type === "tv" ? row.release_date : undefined,
+        vote_average: row.vote_average,
+        stars: row.stars,
+        rated_at: row.rated_at,
+      })),
+    });
+  }
+
+  if (request.method === "POST") {
+    const body = await readBody(request);
+    const item = normalizeItem(body);
+    const stars = Number(body.stars);
+    if (!item.tmdbId || !item.title) return json({ error: "tmdbId and title are required" }, 400);
+    if (!Number.isInteger(stars) || stars < 1 || stars > 5) {
+      return json({ error: "stars must be an integer 1-5" }, 400);
+    }
+
+    await env.DB.prepare(
+      `INSERT INTO user_ratings
+         (user_id, tmdb_id, media_type, title, overview, poster_path, backdrop_path, release_date, vote_average, stars)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (user_id, tmdb_id, media_type)
+       DO UPDATE SET stars = excluded.stars, rated_at = datetime('now')`
+    )
+      .bind(
+        uid,
+        item.tmdbId,
+        item.mediaType,
+        item.title,
+        item.overview,
+        item.posterPath,
+        item.backdropPath,
+        item.releaseDate,
+        item.voteAverage,
+        stars
+      )
+      .run();
+
+    // Same lazy-indexing as watchlist/watched — a rated title feeds the
+    // recommendation engine even if it was never marked watched.
+    await indexTitle(env, item).catch((err) => console.error("indexTitle failed", err));
+
+    return json({ ok: true });
+  }
+
+  if (request.method === "DELETE") {
+    const url = new URL(request.url);
+    const body = await readBody(request);
+    const tmdbId = Number(url.searchParams.get("tmdbId") ?? body.tmdbId);
+    const mediaType = (url.searchParams.get("mediaType") ?? body.mediaType) === "tv" ? "tv" : "movie";
+    if (!tmdbId) return json({ error: "tmdbId is required" }, 400);
+    await env.DB.prepare("DELETE FROM user_ratings WHERE user_id = ? AND tmdb_id = ? AND media_type = ?")
+      .bind(uid, tmdbId, mediaType)
+      .run();
+    return json({ ok: true });
+  }
+
+  return json({ error: "Method not allowed" }, 405);
+}
+
 async function handleSearch(request, env) {
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") || "").trim();
@@ -141,15 +240,22 @@ async function handleSearch(request, env) {
 async function handleRecommendations(request, env) {
   const uid = await requireUser(request, env);
 
-  const { results: watched } = await env.DB.prepare(
-    "SELECT tmdb_id, media_type, title, overview FROM watched WHERE user_id = ? ORDER BY watched_at DESC LIMIT 8"
-  )
-    .bind(uid)
-    .all();
+  const [{ results: watched }, { results: ratings }] = await Promise.all([
+    env.DB.prepare(
+      "SELECT tmdb_id, media_type, title, overview FROM watched WHERE user_id = ? ORDER BY watched_at DESC LIMIT 15"
+    )
+      .bind(uid)
+      .all(),
+    env.DB.prepare(
+      "SELECT tmdb_id, media_type, title, overview, stars FROM user_ratings WHERE user_id = ?"
+    )
+      .bind(uid)
+      .all(),
+  ]);
 
-  if (watched.length === 0) return json({ results: [] });
+  if (watched.length === 0 && ratings.length === 0) return json({ results: [] });
 
-  const taste = await tasteVectorFromWatched(env, watched);
+  const taste = await buildTasteVector(env, watched, ratings);
   if (!taste) return json({ results: [] });
 
   const { results: watchlist } = await env.DB.prepare(
@@ -161,6 +267,7 @@ async function handleRecommendations(request, env) {
   const seen = new Set([
     ...watched.map((r) => vectorId(r.media_type, r.tmdb_id)),
     ...watchlist.map((r) => vectorId(r.media_type, r.tmdb_id)),
+    ...ratings.map((r) => vectorId(r.media_type, r.tmdb_id)),
   ]);
 
   const { matches } = await env.VECTORIZE_INDEX.query(taste, { topK: 30, returnMetadata: true });
@@ -206,6 +313,9 @@ const worker = {
       if (url.pathname === "/health") return json({ ok: true });
       if (url.pathname === "/watchlist") return await handleRelationRoute(request, env, "watchlist");
       if (url.pathname === "/watched") return await handleRelationRoute(request, env, "watched");
+      if (url.pathname === "/ratings" && request.method === "GET")
+        return await handleRatingsLookup(request, env);
+      if (url.pathname === "/ratings/mine") return await handleMyRatings(request, env);
       if (url.pathname === "/search" && request.method === "GET") return await handleSearch(request, env);
       if (url.pathname === "/recommendations" && request.method === "GET")
         return await handleRecommendations(request, env);

@@ -1,10 +1,11 @@
 # Bayflix API worker
 
-Cloudflare Worker backing the watchlist, watched history, AI semantic search,
-and recommendations features. Runs on D1 (relational store for per-user
-watchlist/watched), Vectorize (vector index acting as the searchable
-"catalog"), and Workers AI (`@cf/baai/bge-base-en-v1.5`) for embeddings — no
-external AI API key required, it's all billed to the same Cloudflare account.
+Cloudflare Worker backing the watchlist, watched history, star ratings, AI
+semantic search, and recommendations features. Runs on D1 (relational store
+for per-user watchlist/watched/ratings, plus a shared OMDb ratings cache),
+Vectorize (vector index acting as the searchable "catalog"), and Workers AI
+(`@cf/baai/bge-base-en-v1.5`) for embeddings — no external AI API key
+required, it's all billed to the same Cloudflare account.
 
 This is a separate deployable from both the Next.js app and the existing
 `cloudflare-worker/r2-video-worker.js` HLS worker — it's called directly from
@@ -40,7 +41,14 @@ wrangler vectorize create bayflix-index --dimensions=768 --metric=cosine
 # 4. (Optional) protect the bulk-index endpoint
 wrangler secret put ADMIN_KEY
 
-# 5. Deploy
+# 5. OMDb ratings (IMDb/Rotten Tomatoes/Metacritic) — free key at
+#    omdbapi.com/apikey.aspx. Results are cached in D1 (ratings_cache,
+#    30-day TTL), so this stays well under the free 1,000-request/day quota
+#    no matter how much traffic the app gets — OMDb is called once per
+#    title, not once per page view.
+wrangler secret put OMDB_API_KEY
+
+# 6. Deploy
 npm run deploy
 ```
 
@@ -52,9 +60,12 @@ of erroring — see `lib/bayflix-api.js`.
 
 ## API
 
-All endpoints return JSON and are CORS-open (`*`) since the only credential
-involved — the Firebase ID token — is already client-held; there's no secret
-API key on this worker to hide behind a server proxy the way TMDB/OMDb's are.
+All endpoints return JSON and are CORS-open (`*`). The watchlist/watched/
+ratings/search/recommendations endpoints don't need a server-side secret
+hidden from the client — the Firebase ID token is already client-held. The
+one exception is `GET /ratings`, which does hold a secret (`OMDB_API_KEY`)
+server-side; the client never sees it, and D1 caching keeps OMDb call volume
+low regardless of how the endpoint gets hit.
 
 | Endpoint | Auth | Description |
 |---|---|---|
@@ -62,8 +73,12 @@ API key on this worker to hide behind a server proxy the way TMDB/OMDb's are.
 | `POST /watchlist` | Firebase ID token | Add/update an item (body: `tmdbId, mediaType, title, overview, posterPath, backdropPath, releaseDate, voteAverage`) |
 | `DELETE /watchlist?tmdbId=&mediaType=` | Firebase ID token | Remove an item |
 | `GET /watched`, `POST /watched`, `DELETE /watched` | Firebase ID token | Same shape, for watched history |
+| `GET /ratings?tmdbId=&mediaType=&imdbId=&title=&year=` | none | D1-cached IMDb/Rotten Tomatoes/Metacritic ratings (imdbId preferred; title+year as fallback) |
+| `GET /ratings/mine` | Firebase ID token | Current user's 1-5 star ratings |
+| `POST /ratings/mine` | Firebase ID token | Upsert a rating (body: same shape as watchlist, plus `stars` 1-5) |
+| `DELETE /ratings/mine?tmdbId=&mediaType=` | Firebase ID token | Remove a rating |
 | `GET /search?q=` | none | Semantic search over the vector index |
-| `GET /recommendations` | Firebase ID token | Titles similar to the user's watched history, excluding anything already watched/listed |
+| `GET /recommendations` | Firebase ID token | Titles similar to the user's watched history and ratings (weighted — 5-star counts full, 1-star counts 0.2x), excluding anything already watched/listed/rated |
 | `POST /admin/index` | `X-Admin-Key` header | Bulk-upsert `{ items: [...] }` into the vector index |
 
 Auth is a real, verified Firebase ID token check (`src/verifyFirebaseToken.js`)

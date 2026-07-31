@@ -3,15 +3,16 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Play, Clapperboard, Star } from "lucide-react";
+import { Play, Clapperboard } from "lucide-react";
 import { SkeletonDetail } from "./Skeletons";
 import MovieRow from "./MovieRow";
 import TrailerModal from "./TrailerModal";
 import RatingsBadges from "./RatingsBadges";
 import WatchlistButton from "./WatchlistButton";
+import StarRating from "./StarRating";
 import { useTrailer } from "@/lib/use-trailer";
 import { backdropUrl, posterUrl, pickTrailer, fetchMovieDetails, fetchTVDetails } from "@/lib/tmdb";
-import { fetchOmdbRatings } from "@/lib/omdb";
+import { getRatings } from "@/lib/bayflix-api";
 
 function formatRuntime(minutes) {
   if (!minutes) return null;
@@ -58,11 +59,13 @@ export default function MediaDetail({ id, mediaType }) {
     const imdbId = data.imdb_id || data.external_ids?.imdb_id;
     const title = data.title || data.name;
     const year = (data.release_date || data.first_air_date || "").slice(0, 4);
-    fetchOmdbRatings({ imdbId, title, year }).then((r) => !cancelled && setRatings(r));
+    getRatings({ tmdbId: data.id, mediaType, imdbId, title, year }).then(
+      (r) => !cancelled && setRatings(r)
+    );
     return () => {
       cancelled = true;
     };
-  }, [data]);
+  }, [data, mediaType]);
 
   if (notFound) {
     return (
@@ -112,11 +115,6 @@ export default function MediaDetail({ id, mediaType }) {
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-black sm:text-4xl">{title}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-neutral-300">
-            {data.vote_average > 0 && (
-              <span className="flex items-center gap-1 text-green-400">
-                <Star size={14} fill="currentColor" /> {data.vote_average.toFixed(1)}
-              </span>
-            )}
             {date && <span>{date.slice(0, 4)}</span>}
             {!isTV && data.runtime ? <span>{formatRuntime(data.runtime)}</span> : null}
             {isTV && (
@@ -127,8 +125,9 @@ export default function MediaDetail({ id, mediaType }) {
             )}
           </div>
 
-          <div className="mt-3">
-            <RatingsBadges ratings={ratings} />
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <RatingsBadges ratings={ratings} tmdbScore={data.vote_average} />
+            <StarRating item={data} mediaType={mediaType} />
           </div>
 
           {data.genres?.length > 0 && (

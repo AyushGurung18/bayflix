@@ -47,35 +47,58 @@ export function matchToCardItem(metadata) {
   };
 }
 
-function average(vectors) {
+function weightedAverage(vectors, weights) {
   const dim = vectors[0].length;
   const sum = new Array(dim).fill(0);
-  for (const v of vectors) {
-    for (let i = 0; i < dim; i++) sum[i] += v[i];
-  }
-  return sum.map((x) => x / vectors.length);
+  let totalWeight = 0;
+  vectors.forEach((v, i) => {
+    const w = weights[i];
+    totalWeight += w;
+    for (let d = 0; d < dim; d++) sum[d] += v[d] * w;
+  });
+  return sum.map((x) => x / totalWeight);
 }
 
 /**
- * Builds a "taste vector" from a user's recently watched titles — reusing
- * their already-indexed vectors when available, falling back to embedding
+ * Builds a "taste vector" from a user's watched history and star ratings —
+ * reusing already-indexed vectors when available, falling back to embedding
  * on the fly (from the title/overview stashed in D1) for anything not yet
  * in Vectorize.
+ *
+ * Weighting: plain "watched" counts as 1.0. A star rating replaces that
+ * weight with stars/5 — a 5-star title counts fully, a 1-star title counts
+ * at 0.2x, so disliked titles barely pull the taste vector toward them
+ * instead of being treated as equally strong a signal as something loved.
  */
-export async function tasteVectorFromWatched(env, watchedRows) {
-  if (watchedRows.length === 0) return null;
+export async function buildTasteVector(env, watchedRows, ratingRows) {
+  const weights = new Map(); // vectorId -> weight
+  const rowsById = new Map(); // vectorId -> row (for on-the-fly embedding text)
 
-  const ids = watchedRows.map((row) => vectorId(row.media_type, row.tmdb_id));
+  for (const row of watchedRows) {
+    const id = vectorId(row.media_type, row.tmdb_id);
+    weights.set(id, 1.0);
+    rowsById.set(id, row);
+  }
+  for (const row of ratingRows) {
+    const id = vectorId(row.media_type, row.tmdb_id);
+    weights.set(id, row.stars / 5); // a rating is a stronger signal than plain "watched"
+    rowsById.set(id, row);
+  }
+
+  const ids = [...weights.keys()];
+  if (ids.length === 0) return null;
+
   const existing = await env.VECTORIZE_INDEX.getByIds(ids);
-  const foundIds = new Set(existing.map((v) => v.id));
+  const vectorsById = new Map(existing.map((v) => [v.id, v.values]));
 
-  const missing = watchedRows.filter((row) => !foundIds.has(vectorId(row.media_type, row.tmdb_id)));
+  const missingIds = ids.filter((id) => !vectorsById.has(id));
   const missingVectors = await Promise.all(
-    missing.map((row) =>
-      embedText(env, embeddingText({ title: row.title, overview: row.overview }))
-    )
+    missingIds.map((id) => embedText(env, embeddingText(rowsById.get(id))))
   );
+  missingIds.forEach((id, i) => vectorsById.set(id, missingVectors[i]));
 
-  const vectors = [...existing.map((v) => v.values), ...missingVectors];
-  return average(vectors);
+  return weightedAverage(
+    ids.map((id) => vectorsById.get(id)),
+    ids.map((id) => weights.get(id))
+  );
 }

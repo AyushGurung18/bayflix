@@ -29,7 +29,13 @@ FIREBASE_PROJECT_ID = "REPLACE_WITH_YOUR_FIREBASE_PROJECT_ID"
 
 # Secrets (not committed — set via CLI):
 #   wrangler secret put ADMIN_KEY
+#   wrangler secret put OMDB_API_KEY
+#
 # ADMIN_KEY protects POST /admin/index, the optional bulk catalog-seeding
-# endpoint. Everything else (watchlist/watched/search/recommendations) is
+# endpoint. OMDB_API_KEY (free key at omdbapi.com/apikey.aspx) powers
+# GET /ratings — results are cached in D1's ratings_cache table (30-day TTL),
+# so OMDb only gets called roughly once per title ever, not once per page
+# view, keeping it well within the free 1,000-request/day quota regardless
+# of traffic. Everything else (watchlist/watched/search/recommendations) is
 # either public read or authenticated via a verified Firebase ID token, no
 # secret needed.
