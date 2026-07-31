@@ -1,5 +1,5 @@
 name = "bayflix-api"
-main = "src/index.js"
+main = "src/index.ts"
 compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat"]
 
@@ -15,7 +15,7 @@ binding = "AI"
 [[d1_databases]]
 binding = "DB"
 database_name = "bayflix-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "0f1c9c43-dd31-4029-b2a5-eaeb579198a6"
 
 # Create with: wrangler vectorize create bayflix-index --dimensions=768 --metric=cosine
 [[vectorize]]
@@ -31,7 +31,7 @@ FIREBASE_PROJECT_ID = "REPLACE_WITH_YOUR_FIREBASE_PROJECT_ID"
 #   wrangler secret put ADMIN_KEY
 #   wrangler secret put OMDB_API_KEY
 #
-# ADMIN_KEY protects POST /admin/index, used by scripts/seed-catalog.mjs to
+# ADMIN_KEY protects POST /admin/index, used by scripts/seed-catalog.ts to
 # bulk-seed the vector index — required, since Vectorize starts empty on a
 # fresh deploy and semantic search can't return anything not yet indexed.
 # OMDB_API_KEY (free key at omdbapi.com/apikey.aspx) powers
