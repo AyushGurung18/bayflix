@@ -31,8 +31,10 @@ FIREBASE_PROJECT_ID = "REPLACE_WITH_YOUR_FIREBASE_PROJECT_ID"
 #   wrangler secret put ADMIN_KEY
 #   wrangler secret put OMDB_API_KEY
 #
-# ADMIN_KEY protects POST /admin/index, the optional bulk catalog-seeding
-# endpoint. OMDB_API_KEY (free key at omdbapi.com/apikey.aspx) powers
+# ADMIN_KEY protects POST /admin/index, used by scripts/seed-catalog.mjs to
+# bulk-seed the vector index — required, since Vectorize starts empty on a
+# fresh deploy and semantic search can't return anything not yet indexed.
+# OMDB_API_KEY (free key at omdbapi.com/apikey.aspx) powers
 # GET /ratings — results are cached in D1's ratings_cache table (30-day TTL),
 # so OMDb only gets called roughly once per title ever, not once per page
 # view, keeping it well within the free 1,000-request/day quota regardless

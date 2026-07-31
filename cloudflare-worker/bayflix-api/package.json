@@ -5,7 +5,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:migrate": "wrangler d1 execute bayflix-db --remote --file=./schema.sql",
-    "db:migrate:local": "wrangler d1 execute bayflix-db --local --file=./schema.sql"
+    "db:migrate:local": "wrangler d1 execute bayflix-db --local --file=./schema.sql",
+    "seed": "node scripts/seed-catalog.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

@@ -11,15 +11,30 @@ This is a separate deployable from both the Next.js app and the existing
 `cloudflare-worker/r2-video-worker.js` HLS worker — it's called directly from
 the browser (Firebase ID token as bearer auth), not proxied through Next.js.
 
-## How it stays functional with zero setup
+## Seeding the vector index
 
-Nothing needs to be pre-seeded. Whenever a signed-in user adds a title to
-their watchlist or marks something watched, that title's overview gets
-embedded and upserted into Vectorize on the spot — the vector index grows
-organically from real usage, and semantic search / recommendations start
-returning results as soon as there's *any* data in it. `POST /admin/index` is
-an optional bulk-seed endpoint if you'd rather pre-populate a whole catalog
-(e.g. TMDB's popular/trending lists) up front instead of waiting for that.
+Whenever a signed-in user adds a title to their watchlist, marks something
+watched, or rates it, that title's overview gets embedded and upserted into
+Vectorize on the spot — the index keeps growing from real usage after that.
+
+But on a fresh deploy it starts **empty**, and semantic search can only ever
+return titles that are actually indexed — there's no fallback. Run the seed
+script once after deploying so search/recommendations have something real to
+work with immediately, instead of only whatever you personally happen to
+watchlist:
+
+```bash
+TMDB_API_KEY=your_tmdb_key \
+WORKER_BASE_URL=https://bayflix-api.<your-subdomain>.workers.dev \
+ADMIN_KEY=the_key_from_step_4_below \
+npm run seed
+```
+
+It pulls TMDB's top-rated + popular + trending + upcoming movies and TV
+shows (a few hundred titles, including older classics via `top_rated` — not
+just whatever's trending this week) and pushes them into `POST /admin/index`
+in batches. It's idempotent (upserts by tmdb id), so it's safe to re-run
+occasionally to pick up new releases.
 
 ## Setup
 
@@ -38,7 +53,8 @@ wrangler vectorize create bayflix-index --dimensions=768 --metric=cosine
 # 3. Set FIREBASE_PROJECT_ID in wrangler.toml to the same project as
 #    NEXT_PUBLIC_FIREBASE_PROJECT_ID in the Next.js app's .env.local
 
-# 4. (Optional) protect the bulk-index endpoint
+# 4. Protects POST /admin/index (used by the seed script below) — required,
+#    not optional, since that endpoint can write into your D1/Vectorize
 wrangler secret put ADMIN_KEY
 
 # 5. OMDb ratings (IMDb/Rotten Tomatoes/Metacritic) — free key at
@@ -50,6 +66,9 @@ wrangler secret put OMDB_API_KEY
 
 # 6. Deploy
 npm run deploy
+
+# 7. Seed the vector index — see "Seeding the vector index" below. Without
+#    this, semantic search returns nothing until users organically build it up.
 ```
 
 Wrangler prints the deployed URL (`https://bayflix-api.<your-subdomain>.workers.dev`).
