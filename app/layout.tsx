@@ -14,11 +14,27 @@ const inter = Inter({
   display: "swap",
 });
 
+const SITE_URL = "https://bayflix.ayushgurung.com";
+
 export const metadata: Metadata = {
-  title: "Bayflix — Unlimited movies, TV shows and more",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Bayflix — AI-Powered Streaming Browser",
+    template: "%s | Bayflix",
+  },
   description:
-    "Bayflix is a TMDB-powered streaming browser. Watch anywhere, cancel anytime.",
+    "Bayflix is a TMDB-powered streaming browser with AI semantic search and recommendations, built with Next.js and Cloudflare Workers. Watch anywhere, cancel anytime.",
   manifest: "/manifest.json",
+  robots: { index: true, follow: true },
+  openGraph: {
+    siteName: "Bayflix",
+    type: "website",
+    images: [{ url: "/images/bg-hero-1.jpg", width: 1200, height: 630, alt: "Bayflix" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/images/bg-hero-1.jpg"],
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
