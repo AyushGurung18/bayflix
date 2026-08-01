@@ -123,10 +123,10 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
       {rank && (
         <div
           aria-hidden
-          className="pointer-events-none absolute -left-3 bottom-0 z-0 select-none font-black italic leading-none text-transparent sm:-left-4"
+          className="pointer-events-none absolute -left-8 bottom-0 z-0 select-none font-black italic leading-none text-transparent sm:-left-12"
           style={{
-            fontSize: "clamp(64px, 8vw, 96px)",
-            WebkitTextStroke: "3px rgba(255,255,255,0.3)",
+            fontSize: "clamp(80px, 10vw, 120px)",
+            WebkitTextStroke: "3px rgba(255,255,255,0.35)",
           }}
         >
           {rank}

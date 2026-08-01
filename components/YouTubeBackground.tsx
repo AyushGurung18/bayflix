@@ -143,7 +143,10 @@ export default function YouTubeBackground({ videoId, muted, className, onUnavail
             if (!mutedRef.current) e.target.unMute();
             e.target.playVideo();
           },
-          onError: () => {
+          onError: (e) => {
+            // 101/150 = embedding disabled by the uploader, 100 = video
+            // removed/private — genuinely unplayable, not a transient blip.
+            console.warn(`YouTube embed error (videoId=${videoId}): code ${e.data}`);
             if (!cancelled) onUnavailable?.();
           },
         },
