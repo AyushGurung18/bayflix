@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useInView } from "framer-motion";
 import {
   Play,
   Clapperboard,
@@ -60,6 +61,8 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   const [ratings, setRatings] = useState<RatingsResult | null>(null);
   const [showHeroVideo, setShowHeroVideo] = useState(false);
   const [heroMuted, toggleHeroMuted] = usePersistentMute();
+  const heroRef = useRef<HTMLElement>(null);
+  const heroInView = useInView(heroRef, { amount: 0.4 });
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
 
   useEffect(() => {
@@ -125,7 +128,7 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
 
   return (
     <div className="pb-16">
-      <section className="relative h-[46vw] max-h-[70vh] min-h-[360px] w-full overflow-hidden">
+      <section ref={heroRef} className="relative h-[46vw] max-h-[70vh] min-h-[360px] w-full overflow-hidden">
         {data.backdrop_path && (
           <Image
             src={backdropUrl(data.backdrop_path) ?? ""}
@@ -138,7 +141,7 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
           />
         )}
         {showHeroVideo && trailerInfo && (
-          <YouTubeLivePlayer videoId={trailerInfo.key} muted={heroMuted} />
+          <YouTubeLivePlayer videoId={trailerInfo.key} muted={heroMuted} playing={heroInView} />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-ink/90 via-transparent to-transparent" />

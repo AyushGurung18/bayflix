@@ -6,6 +6,7 @@ interface YTPlayer {
   mute(): void;
   unMute(): void;
   playVideo(): void;
+  pauseVideo(): void;
   destroy(): void;
   getIframe(): HTMLIFrameElement;
 }
@@ -67,6 +68,8 @@ function applyCoverStyle(iframe: HTMLIFrameElement) {
 interface YouTubeLivePlayerProps {
   videoId: string;
   muted: boolean;
+  /** Defaults to true. Set false to pause — e.g. while scrolled out of view. */
+  playing?: boolean;
 }
 
 // Uses the real YouTube IFrame Player API for genuinely live mute/unmute
@@ -78,15 +81,20 @@ interface YouTubeLivePlayerProps {
 // destroys a player on every hover in/out). Hero and the detail-page hero
 // trailer mount once per page view, so that risk doesn't apply here — for
 // anything hover-triggered, use the plain-iframe YouTubeBackground instead.
-export default function YouTubeLivePlayer({ videoId, muted }: YouTubeLivePlayerProps) {
+export default function YouTubeLivePlayer({ videoId, muted, playing = true }: YouTubeLivePlayerProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const readyRef = useRef(false);
   const mutedRef = useRef(muted);
+  const playingRef = useRef(playing);
 
   useEffect(() => {
     mutedRef.current = muted;
   }, [muted]);
+
+  useEffect(() => {
+    playingRef.current = playing;
+  }, [playing]);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,7 +133,7 @@ export default function YouTubeLivePlayer({ videoId, muted }: YouTubeLivePlayerP
             readyRef.current = true;
             applyCoverStyle(e.target.getIframe());
             if (!mutedRef.current) e.target.unMute();
-            e.target.playVideo();
+            if (playingRef.current) e.target.playVideo();
           },
         },
       });
@@ -145,6 +153,12 @@ export default function YouTubeLivePlayer({ videoId, muted }: YouTubeLivePlayerP
     if (muted) playerRef.current.mute();
     else playerRef.current.unMute();
   }, [muted]);
+
+  useEffect(() => {
+    if (!readyRef.current || !playerRef.current) return;
+    if (playing) playerRef.current.playVideo();
+    else playerRef.current.pauseVideo();
+  }, [playing]);
 
   return <div ref={wrapperRef} className="absolute inset-0 overflow-hidden" />;
 }

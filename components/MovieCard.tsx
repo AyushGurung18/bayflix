@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Play, Info, Film, Star } from "lucide-react";
 import { posterUrl, backdropUrl, fetchMovieVideos, fetchTVVideos, pickTrailer } from "@/lib/tmdb";
 import { BLUR_DATA_URL } from "@/lib/image-utils";
+import { usePersistentMute } from "@/lib/use-persistent-mute";
 import YouTubeBackground from "./YouTubeBackground";
 import WatchlistButton from "./WatchlistButton";
 import type { MediaType, TmdbItem } from "@/lib/types";
@@ -35,6 +36,11 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
   const [expanded, setExpanded] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [trailerKey, setTrailerKey] = useState<string | null | undefined>(undefined); // undefined = not fetched yet, null = none found
+  // Follows the same site-wide sound preference set via the Hero's speaker
+  // icon (read once on mount, not live-synced across open instances) —
+  // no separate toggle on the card itself, which would mean remounting
+  // this specific iframe on every hover, on top of the one it already gets.
+  const [muted] = usePersistentMute();
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const videoTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -133,11 +139,11 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.85 }}
               transition={{ type: "spring", stiffness: 340, damping: 28 }}
-              className="absolute left-1/2 top-1/2 z-30 w-[320px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[420px]"
+              className="absolute left-1/2 top-1/2 z-30 w-[360px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[480px]"
             >
               <Link href={infoHref} className="relative block aspect-video w-full overflow-hidden bg-black">
                 {showVideo && trailerKey ? (
-                  <YouTubeBackground videoId={trailerKey} muted />
+                  <YouTubeBackground videoId={trailerKey} muted={muted} />
                 ) : (
                   <Backdrop item={item} title={title} />
                 )}

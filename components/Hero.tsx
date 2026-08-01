@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { motion, type Variants } from "framer-motion";
+import { motion, useInView, type Variants } from "framer-motion";
 import { Play, Info, Clapperboard, Star, Volume2, VolumeX } from "lucide-react";
 import { backdropUrl, pickTrailer } from "@/lib/tmdb";
 import { BLUR_DATA_URL } from "@/lib/image-utils";
@@ -29,6 +29,8 @@ interface HeroProps {
 export default function Hero({ item: media, mediaType = "movie", onTrailer }: HeroProps) {
   const [showVideo, setShowVideo] = useState(false);
   const [muted, toggleMuted] = usePersistentMute();
+  const sectionRef = useRef<HTMLElement>(null);
+  const inView = useInView(sectionRef, { amount: 0.4 });
 
   const trailer = pickTrailer(media?.videos);
 
@@ -48,7 +50,7 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
   const genres = (media.genres ?? []).slice(0, 3).map((g) => g.name);
 
   return (
-    <section className="relative h-[62vw] max-h-[85vh] min-h-[420px] w-full overflow-hidden">
+    <section ref={sectionRef} className="relative h-[62vw] max-h-[85vh] min-h-[420px] w-full overflow-hidden">
       <div className="absolute inset-0">
         {media.backdrop_path && (
           <motion.div
@@ -76,7 +78,7 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
             transition={{ duration: 0.6 }}
             className="absolute inset-0 overflow-hidden"
           >
-            <YouTubeLivePlayer videoId={trailer.key} muted={muted} />
+            <YouTubeLivePlayer videoId={trailer.key} muted={muted} playing={inView} />
           </motion.div>
         )}
       </div>
