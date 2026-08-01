@@ -6,8 +6,6 @@ import Link from "next/link";
 import {
   Play,
   Clapperboard,
-  Volume2,
-  VolumeX,
   User,
   Calendar,
   Clock,
@@ -32,7 +30,6 @@ import { useTrailer } from "@/lib/use-trailer";
 import { backdropUrl, posterUrl, pickTrailer, fetchMovieDetails, fetchTVDetails } from "@/lib/tmdb";
 import { getRatings } from "@/lib/bayflix-api";
 import { BLUR_DATA_URL } from "@/lib/image-utils";
-import { usePersistentMute } from "@/lib/use-persistent-mute";
 import type { MediaType, RatingsResult, TmdbDetails } from "@/lib/types";
 
 const HERO_TRAILER_DELAY = 3000;
@@ -59,7 +56,6 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   const [notFound, setNotFound] = useState(false);
   const [ratings, setRatings] = useState<RatingsResult | null>(null);
   const [showHeroVideo, setShowHeroVideo] = useState(false);
-  const [heroMuted, toggleHeroMuted] = usePersistentMute();
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
 
   useEffect(() => {
@@ -137,20 +133,9 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
             className="object-cover object-top"
           />
         )}
-        {showHeroVideo && trailerInfo && (
-          <YouTubeBackground videoId={trailerInfo.key} muted={heroMuted} />
-        )}
+        {showHeroVideo && trailerInfo && <YouTubeBackground videoId={trailerInfo.key} muted />}
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-ink/90 via-transparent to-transparent" />
-        {showHeroVideo && trailerInfo && (
-          <button
-            onClick={toggleHeroMuted}
-            aria-label={heroMuted ? "Unmute trailer" : "Mute trailer"}
-            className="absolute bottom-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/50 text-white transition hover:border-white sm:right-10"
-          >
-            {heroMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-          </button>
-        )}
       </section>
 
       <div className="relative z-10 -mt-24 flex flex-col gap-6 px-4 sm:-mt-32 sm:flex-row sm:px-10">

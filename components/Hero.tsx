@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, type Variants } from "framer-motion";
-import { Play, Info, Volume2, VolumeX, Clapperboard, Star } from "lucide-react";
+import { Play, Info, Clapperboard, Star } from "lucide-react";
 import { backdropUrl, pickTrailer } from "@/lib/tmdb";
 import { BLUR_DATA_URL } from "@/lib/image-utils";
-import { usePersistentMute } from "@/lib/use-persistent-mute";
 import YouTubeBackground from "./YouTubeBackground";
 import type { MediaType, TmdbDetails } from "@/lib/types";
 
@@ -28,7 +27,6 @@ interface HeroProps {
 
 export default function Hero({ item: media, mediaType = "movie", onTrailer }: HeroProps) {
   const [showVideo, setShowVideo] = useState(false);
-  const [muted, toggleMuted] = usePersistentMute();
 
   const trailer = pickTrailer(media?.videos);
 
@@ -76,7 +74,7 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
             transition={{ duration: 0.6 }}
             className="absolute inset-0 overflow-hidden"
           >
-            <YouTubeBackground videoId={trailer.key} muted={muted} />
+            <YouTubeBackground videoId={trailer.key} muted />
           </motion.div>
         )}
       </div>
@@ -152,18 +150,6 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
               <Info size={20} /> More Info
             </Link>
           </motion.div>
-
-          {showVideo && trailer && (
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={toggleMuted}
-              aria-label={muted ? "Unmute preview" : "Mute preview"}
-              className="ml-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/50 text-white transition hover:border-white"
-            >
-              {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </motion.button>
-          )}
         </motion.div>
       </motion.div>
     </section>
