@@ -65,13 +65,19 @@ async function fetchFromOmdb(
   const res = await fetch(`https://www.omdbapi.com/?${params.toString()}`);
   const data = (await res.json()) as {
     Response: string;
+    Error?: string;
     Ratings?: { Source: string; Value: string }[];
     imdbID?: string;
     imdbRating?: string;
     imdbVotes?: string;
     Metascore?: string;
   };
-  if (data.Response === "False") return null;
+  if (data.Response === "False") {
+    // Surfaces *why* OMDb rejected the lookup (bad/unactivated key vs. a
+    // genuine title miss) without ever logging the key itself.
+    console.error("OMDb lookup returned no result", { title, year, imdbId, reason: data.Error });
+    return null;
+  }
 
   const ratings = Object.fromEntries(
     (data.Ratings ?? []).map((r: { Source: string; Value: string }) => [r.Source, r.Value])
