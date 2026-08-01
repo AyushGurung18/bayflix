@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Play, Clapperboard } from "lucide-react";
+import { Play, Clapperboard, Volume2, VolumeX, User } from "lucide-react";
 import { SkeletonDetail } from "./Skeletons";
 import MovieRow from "./MovieRow";
 import TrailerModal from "./TrailerModal";
@@ -15,6 +15,8 @@ import { backdropUrl, posterUrl, pickTrailer, fetchMovieDetails, fetchTVDetails 
 import { getRatings } from "@/lib/bayflix-api";
 import { BLUR_DATA_URL } from "@/lib/image-utils";
 import type { MediaType, RatingsResult, TmdbDetails } from "@/lib/types";
+
+const HERO_TRAILER_DELAY = 3000;
 
 function formatRuntime(minutes?: number) {
   if (!minutes) return null;
@@ -37,6 +39,8 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   const [data, setData] = useState<TmdbDetails | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [ratings, setRatings] = useState<RatingsResult | null>(null);
+  const [showHeroVideo, setShowHeroVideo] = useState(false);
+  const [heroMuted, setHeroMuted] = useState(true);
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
 
   useEffect(() => {
@@ -59,6 +63,14 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
       cancelled = true;
     };
   }, [id, mediaType]);
+
+  useEffect(() => {
+    if (!data) return;
+    const trailer = pickTrailer(data.videos);
+    if (!trailer) return;
+    const timer = setTimeout(() => setShowHeroVideo(true), HERO_TRAILER_DELAY);
+    return () => clearTimeout(timer);
+  }, [data]);
 
   useEffect(() => {
     if (!data) return;
@@ -94,7 +106,7 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
 
   return (
     <div className="pb-16">
-      <section className="relative h-[46vw] max-h-[70vh] min-h-[360px] w-full">
+      <section className="relative h-[46vw] max-h-[70vh] min-h-[360px] w-full overflow-hidden">
         {data.backdrop_path && (
           <Image
             src={backdropUrl(data.backdrop_path) ?? ""}
@@ -106,8 +118,28 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
             className="object-cover object-top"
           />
         )}
+        {showHeroVideo && trailerInfo && (
+          <iframe
+            key={trailerInfo.key + heroMuted}
+            title={`${title} trailer`}
+            src={`https://www.youtube-nocookie.com/embed/${trailerInfo.key}?autoplay=1&mute=${
+              heroMuted ? 1 : 0
+            }&controls=0&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1`}
+            allow="autoplay; encrypted-media"
+            className="absolute inset-0 h-full w-full scale-[1.5] border-0 sm:scale-125"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-ink/90 via-transparent to-transparent" />
+        {showHeroVideo && trailerInfo && (
+          <button
+            onClick={() => setHeroMuted((m) => !m)}
+            aria-label={heroMuted ? "Unmute trailer" : "Mute trailer"}
+            className="absolute bottom-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/50 text-white transition hover:border-white sm:right-10"
+          >
+            {heroMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </button>
+        )}
       </section>
 
       <div className="relative z-10 -mt-24 flex flex-col gap-6 px-4 sm:-mt-32 sm:flex-row sm:px-10">
@@ -166,14 +198,14 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href={`/watch/${data.id}?type=${mediaType}&title=${encodeURIComponent(title)}`}
-              className="flex items-center gap-2 rounded bg-brand px-6 py-3 text-sm font-bold text-white transition hover:bg-brand-dark"
+              className="glow-brand flex items-center gap-2 rounded bg-gradient-to-br from-brand to-brand-dark px-6 py-3 text-sm font-bold text-white transition-all hover:scale-[1.03] active:scale-95"
             >
               <Play size={18} fill="white" /> Play Now
             </Link>
             {trailerInfo && (
               <button
                 onClick={() => openTrailerDirect(trailerInfo.key, title)}
-                className="flex items-center gap-2 rounded border border-neutral-500 px-6 py-3 text-sm font-bold text-white transition hover:border-white"
+                className="flex items-center gap-2 rounded border border-neutral-500 px-6 py-3 text-sm font-bold text-white transition-all hover:scale-[1.03] hover:border-white active:scale-95"
               >
                 <Clapperboard size={18} /> Watch Trailer
               </button>
@@ -205,24 +237,34 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
       {cast.length > 0 && (
         <div className="mt-10 px-4 sm:px-10">
           <h2 className="mb-4 text-xl font-semibold">Cast</h2>
-          <div className="no-scrollbar flex gap-4 overflow-x-auto pb-2">
+          <div className="no-scrollbar flex gap-5 overflow-x-auto pb-2">
             {cast.map((person) => (
-              <div key={person.id} className="w-24 shrink-0 text-center sm:w-28">
-                <div className="relative mx-auto h-24 w-24 overflow-hidden rounded-full bg-ink-card sm:h-28 sm:w-28">
-                  {person.profile_path && (
+              <Link
+                key={person.id}
+                href={`/person/${person.id}`}
+                className="group w-28 shrink-0 text-center sm:w-36"
+              >
+                <div className="relative mx-auto h-28 w-28 overflow-hidden rounded-full bg-ink-card ring-1 ring-white/10 transition group-hover:ring-2 group-hover:ring-white/60 sm:h-36 sm:w-36">
+                  {person.profile_path ? (
                     <Image
                       src={posterUrl(person.profile_path, "w185") ?? ""}
                       alt={person.name}
                       fill
                       placeholder="blur"
                       blurDataURL={BLUR_DATA_URL}
-                      className="object-cover"
+                      className="object-cover transition group-hover:scale-105"
                     />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-neutral-600">
+                      <User size={28} />
+                    </div>
                   )}
                 </div>
-                <p className="mt-2 truncate text-xs font-medium text-neutral-200">{person.name}</p>
+                <p className="mt-2 truncate text-sm font-medium text-neutral-200 group-hover:text-white">
+                  {person.name}
+                </p>
                 <p className="truncate text-xs text-neutral-500">{person.character}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

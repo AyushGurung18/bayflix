@@ -23,9 +23,17 @@ interface MovieRowProps {
   mediaType?: MediaType;
   exploreHref?: string;
   onTrailer?: (item: TmdbItem, mediaType: MediaType) => void;
+  showRank?: boolean;
 }
 
-export default function MovieRow({ title, items, mediaType, exploreHref, onTrailer }: MovieRowProps) {
+export default function MovieRow({
+  title,
+  items,
+  mediaType,
+  exploreHref,
+  onTrailer,
+  showRank = false,
+}: MovieRowProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
@@ -33,21 +41,6 @@ export default function MovieRow({ title, items, mediaType, exploreHref, onTrail
   // Mouse-drag-to-scroll state — touch already gets native horizontal
   // scrolling from overflow-x-auto, so this only engages for mouse pointers.
   const dragRef = useRef({ dragging: false, startX: 0, startScrollLeft: 0, moved: false });
-
-  useEffect(() => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    // Wheel needs a real (non-passive) listener to preventDefault — React's
-    // onWheel can't reliably stop the page from also scrolling vertically.
-    const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        e.preventDefault();
-        el.scrollLeft += e.deltaY;
-      }
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
 
   useEffect(() => {
     const handleMove = (e: globalThis.PointerEvent) => {
@@ -112,7 +105,10 @@ export default function MovieRow({ title, items, mediaType, exploreHref, onTrail
       className="relative py-4"
     >
       <div className="mb-2 flex items-center justify-between px-4 sm:px-10">
-        <h2 className="text-lg font-semibold text-neutral-100 sm:text-xl">{title}</h2>
+        <div className="flex items-center gap-2.5">
+          <span className="h-5 w-1 rounded-full bg-gradient-to-b from-brand to-brand-dark" />
+          <h2 className="text-lg font-semibold text-neutral-100 sm:text-xl">{title}</h2>
+        </div>
         {exploreHref && (
           <Link
             href={exploreHref}
@@ -146,8 +142,16 @@ export default function MovieRow({ title, items, mediaType, exploreHref, onTrail
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
-          className="no-scrollbar flex cursor-grab select-none gap-2 overflow-x-auto overflow-y-visible scroll-smooth px-4 pb-4 active:cursor-grabbing sm:gap-3 sm:px-10"
-          style={{ overflowY: "visible" }}
+          className="no-scrollbar flex cursor-grab select-none gap-2 overflow-x-auto overflow-y-visible scroll-smooth px-4 pb-4 pt-6 active:cursor-grabbing sm:gap-3 sm:px-10"
+          style={{
+            overflowY: "visible",
+            WebkitMaskImage: `linear-gradient(to right, ${
+              atStart ? "black" : "transparent"
+            } 0, black 32px, black calc(100% - 32px), ${atEnd ? "black" : "transparent"} 100%)`,
+            maskImage: `linear-gradient(to right, ${
+              atStart ? "black" : "transparent"
+            } 0, black 32px, black calc(100% - 32px), ${atEnd ? "black" : "transparent"} 100%)`,
+          }}
         >
           {items.map((item, i) => (
             <motion.div key={item.id} variants={cardVariants}>
@@ -156,6 +160,7 @@ export default function MovieRow({ title, items, mediaType, exploreHref, onTrail
                 mediaType={mediaType || item.media_type}
                 onTrailer={onTrailer}
                 priority={i < 4}
+                rank={showRank && i < 10 ? i + 1 : undefined}
               />
             </motion.div>
           ))}

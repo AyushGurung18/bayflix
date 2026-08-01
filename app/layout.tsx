@@ -23,6 +23,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-sans antialiased bg-ink text-neutral-100">
+        <svg width="0" height="0" className="absolute" aria-hidden>
+          <defs>
+            <linearGradient id="bayflix-star-gradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#FFE9A8" />
+              <stop offset="45%" stopColor="#F5C518" />
+              <stop offset="100%" stopColor="#C9860A" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <div className="cinematic-vignette" />
         <div className="grain-overlay" />
         <SmoothScroll />
         <AuthProvider>

@@ -46,6 +46,7 @@ export default function BrowsePage() {
   const [recommendations, setRecommendations] = useState<TmdbItem[]>([]);
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
   const { configured, watchlist, watched } = useWatchStatus();
+  const watchedRows = [...watched].reverse();
 
   useEffect(() => {
     if (!configured || watched.length === 0) return;
@@ -121,12 +122,16 @@ export default function BrowsePage() {
             onTrailer={openTrailer}
           />
         )}
+        {configured && watchedRows.length > 0 && (
+          <MovieRow title="Watched" items={watchedRows} onTrailer={openTrailer} />
+        )}
         <MovieRow
-          title="Trending Now"
+          title="Top 10 in Movies Today"
           items={rows.trending}
           mediaType="movie"
           exploreHref="/category/trending"
           onTrailer={openTrailer}
+          showRank
         />
         <MovieRow
           title="Popular Movies"

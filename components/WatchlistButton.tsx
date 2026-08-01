@@ -39,9 +39,9 @@ export default function WatchlistButton({
         whileTap={{ scale: 0.97 }}
         onClick={handleClick}
         aria-label={label}
-        className={`flex items-center gap-2 rounded border px-6 py-3 text-sm font-bold transition ${
+        className={`flex items-center gap-2 rounded border px-6 py-3 text-sm font-bold transition-all active:scale-95 ${
           inList
-            ? "border-white bg-white text-black"
+            ? "glow-white border-white bg-white text-black"
             : "border-neutral-500 text-white hover:border-white"
         } ${className}`}
       >
@@ -58,8 +58,10 @@ export default function WatchlistButton({
       onClick={handleClick}
       aria-label={label}
       title={label}
-      className={`flex h-8 w-8 items-center justify-center rounded-full border transition ${
-        inList ? "border-white bg-white text-black" : "border-neutral-500 text-white hover:border-white"
+      className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all active:scale-90 ${
+        inList
+          ? "glow-white border-white bg-white text-black"
+          : "border-neutral-500 text-white hover:border-white"
       } ${className}`}
     >
       {inList ? <Check size={size} /> : <Plus size={size} />}

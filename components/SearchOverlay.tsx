@@ -122,7 +122,8 @@ export default function SearchOverlay({ open, onClose }: SearchOverlayProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[500] overflow-y-auto bg-black/70 backdrop-blur-xl"
+          className="fixed inset-0 z-[500] overflow-y-auto overscroll-contain bg-black/70 backdrop-blur-xl"
+          data-lenis-prevent
           onClick={onClose}
         >
           <motion.div
@@ -223,7 +224,14 @@ export default function SearchOverlay({ open, onClose }: SearchOverlayProps) {
                 </h3>
                 <div className="flex flex-col gap-3">
                   {people.slice(0, 5).map((person) => (
-                    <div key={person.id} className="flex items-center gap-3">
+                    <button
+                      key={person.id}
+                      onClick={() => {
+                        onClose();
+                        router.push(`/person/${person.id}`);
+                      }}
+                      className="group flex items-center gap-3 rounded-lg p-1.5 text-left transition hover:bg-white/5"
+                    >
                       <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-ink-card">
                         {person.profile_path && (
                           <Image
@@ -237,7 +245,9 @@ export default function SearchOverlay({ open, onClose }: SearchOverlayProps) {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-white">{person.name}</p>
+                        <p className="truncate text-sm font-semibold text-white group-hover:underline">
+                          {person.name}
+                        </p>
                         <p className="truncate text-xs text-neutral-500">
                           {person.known_for_department || "Actor"}
                           {person.known_for && person.known_for.length > 0 && (
@@ -245,7 +255,7 @@ export default function SearchOverlay({ open, onClose }: SearchOverlayProps) {
                           )}
                         </p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>

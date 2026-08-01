@@ -13,14 +13,17 @@ import type { MediaType, TmdbItem } from "@/lib/types";
 const HOVER_DELAY = 400; // Netflix-style pause before the preview pops up
 const VIDEO_DELAY = 500; // extra beat after expanding before the trailer starts
 
+const NEW_WINDOW_DAYS = 45;
+
 interface MovieCardProps {
   item: TmdbItem;
   mediaType?: MediaType;
   onTrailer?: (item: TmdbItem, mediaType: MediaType) => void;
   priority?: boolean;
+  rank?: number;
 }
 
-export default function MovieCard({ item, mediaType, onTrailer, priority = false }: MovieCardProps) {
+export default function MovieCard({ item, mediaType, onTrailer, priority = false, rank }: MovieCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [muted, setMuted] = useState(true);
@@ -52,6 +55,12 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
   const year = date ? date.slice(0, 4) : null;
   const rating = item.vote_average ? item.vote_average.toFixed(1) : null;
   const infoHref = type === "tv" ? `/tv/${item.id}` : `/movie/${item.id}`;
+  // "Is this recent" is inherently wall-clock-relative — worst case the
+  // badge flips off near the exact day boundary between renders, which
+  // isn't a correctness issue worth routing through state/effects for.
+  // eslint-disable-next-line react-hooks/purity
+  const daysSinceRelease = date ? (Date.now() - new Date(date).getTime()) / 86_400_000 : null;
+  const isNew = daysSinceRelease !== null && daysSinceRelease >= 0 && daysSinceRelease <= NEW_WINDOW_DAYS;
 
   const handleEnter = () => {
     hoverTimeout.current = setTimeout(() => {
@@ -68,29 +77,55 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
 
   return (
     <div
-      className="relative w-[180px] shrink-0 sm:w-[230px]"
+      className="relative w-[200px] shrink-0 sm:w-[260px]"
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
-      <Link href={infoHref} className="block overflow-hidden rounded-md bg-ink-card shadow-lg">
-        <motion.div
-          animate={{ opacity: expanded ? 0 : 1 }}
-          transition={{ duration: 0.12 }}
-          className="relative aspect-[2/3] w-full"
+      {rank && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-3 bottom-0 z-0 select-none font-black italic leading-none text-transparent sm:-left-4"
+          style={{
+            fontSize: "clamp(64px, 8vw, 96px)",
+            WebkitTextStroke: "3px rgba(255,255,255,0.3)",
+          }}
         >
+          {rank}
+        </div>
+      )}
+
+      <Link
+        href={infoHref}
+        className="relative z-10 block overflow-hidden rounded-md bg-ink-card shadow-lg transition-transform duration-300 hover:scale-[1.03] hover:shadow-2xl hover:shadow-black/60"
+      >
+        <div className="relative aspect-[2/3] w-full">
           <Poster item={item} title={title} priority={priority} />
-        </motion.div>
+        </div>
+        {rating && (
+          <span className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded bg-black/70 px-1.5 py-0.5 text-[11px] font-semibold text-green-400 backdrop-blur-sm">
+            <Star size={10} fill="currentColor" /> {rating}
+          </span>
+        )}
+        {isNew && (
+          <span className="glow-brand absolute right-1.5 top-1.5 rounded bg-gradient-to-br from-brand to-brand-dark px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+            New
+          </span>
+        )}
       </Link>
 
+      {/* Pops out above the card and its neighbours as a real 16:9 preview,
+          instead of being squeezed into the card's own (2:3) bounds — that
+          squeeze is what was forcing the old version to crop/scale the
+          YouTube embed and causing it to overflow its box. */}
       <AnimatePresence>
         {expanded && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: -6 }}
-            animate={{ opacity: 1, scale: 1.1, y: -14 }}
-            exit={{ opacity: 0, scale: 0.92, y: -6 }}
-            transition={{ type: "spring", stiffness: 340, damping: 26 }}
+            initial={{ opacity: 0, scale: 0.9, y: -8 }}
+            animate={{ opacity: 1, scale: 1, y: -18 }}
+            exit={{ opacity: 0, scale: 0.9, y: -8 }}
+            transition={{ type: "spring", stiffness: 340, damping: 28 }}
             style={{ transformOrigin: "top center" }}
-            className="absolute inset-x-0 top-0 z-20 overflow-hidden rounded-md bg-ink-raised shadow-2xl ring-1 ring-white/10"
+            className="absolute left-1/2 top-0 z-30 w-[280px] -translate-x-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[340px]"
           >
             <Link href={infoHref} className="relative block aspect-video w-full overflow-hidden bg-black">
               {showVideo && trailerKey ? (
@@ -98,11 +133,11 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
                   <iframe
                     key={trailerKey + muted}
                     title={`${title} trailer preview`}
-                    src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=${
+                    src={`https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&mute=${
                       muted ? 1 : 0
-                    }&controls=0&loop=1&playlist=${trailerKey}&modestbranding=1&rel=0&playsinline=1`}
+                    }&controls=0&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1`}
                     allow="autoplay; encrypted-media"
-                    className="pointer-events-none absolute inset-0 h-full w-full scale-125 border-0"
+                    className="pointer-events-none absolute inset-0 h-full w-full border-0"
                   />
                   <button
                     onClick={(e) => {
@@ -125,7 +160,7 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
                 <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                   <Link
                     href={`/watch/${item.id}?type=${type}&title=${encodeURIComponent(title)}`}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black transition hover:bg-white/80"
+                    className="glow-white flex h-8 w-8 items-center justify-center rounded-full bg-white text-black transition hover:bg-white/85"
                     aria-label={`Play ${title}`}
                   >
                     <Play size={15} fill="black" className="ml-0.5" />
@@ -188,7 +223,7 @@ function Poster({ item, title, priority }: { item: TmdbItem; title: string; prio
       priority={priority}
       placeholder="blur"
       blurDataURL={BLUR_DATA_URL}
-      sizes="(max-width: 640px) 180px, 230px"
+      sizes="(max-width: 640px) 200px, 260px"
       className="object-cover"
     />
   );
@@ -210,7 +245,7 @@ function Backdrop({ item, title }: { item: TmdbItem; title: string }) {
       fill
       placeholder="blur"
       blurDataURL={BLUR_DATA_URL}
-      sizes="230px"
+      sizes="340px"
       className="object-cover"
     />
   );

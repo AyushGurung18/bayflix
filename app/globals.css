@@ -106,4 +106,32 @@
     mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
   }
+
+  /* Darkened screen edges, like a theater — the single biggest cheap win
+     for "cinema" feel over a flat dark background. Sits above page content
+     but below the grain layer and any modal (which use z-500+). */
+  .cinematic-vignette {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
+  }
+
+  /* Warm glow behind primary red CTAs (Play buttons etc.) — flat brand-red
+     fills read flat/generic; a soft bloom underneath makes them feel lit. */
+  .glow-brand {
+    box-shadow: 0 8px 28px -6px rgba(229, 9, 20, 0.55);
+  }
+  .glow-brand:hover {
+    box-shadow: 0 10px 36px -4px rgba(229, 9, 20, 0.8);
+  }
+
+  /* Same idea for white/neutral CTAs. */
+  .glow-white {
+    box-shadow: 0 8px 24px -8px rgba(255, 255, 255, 0.35);
+  }
+  .glow-white:hover {
+    box-shadow: 0 10px 32px -6px rgba(255, 255, 255, 0.5);
+  }
 }

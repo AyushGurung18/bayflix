@@ -73,9 +73,9 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6 }}
             title="Featured trailer"
-            src={`https://www.youtube.com/embed/${trailer.key}?autoplay=1&mute=${
+            src={`https://www.youtube-nocookie.com/embed/${trailer.key}?autoplay=1&mute=${
               muted ? 1 : 0
-            }&controls=0&loop=1&playlist=${trailer.key}&modestbranding=1&rel=0&playsinline=1`}
+            }&controls=0&rel=0&iv_load_policy=3&fs=0&disablekb=1&modestbranding=1&playsinline=1`}
             allow="autoplay; encrypted-media"
             className="absolute inset-0 h-full w-full scale-[1.5] border-0 sm:scale-125"
           />
@@ -127,28 +127,28 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
         </motion.p>
 
         <motion.div variants={item} className="mt-2 flex flex-wrap items-center gap-3">
-          <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }}>
             <Link
               href={`/watch/${media.id}?type=${mediaType}&title=${encodeURIComponent(title)}`}
-              className="flex items-center gap-2 rounded bg-white px-5 py-2.5 text-sm font-bold text-black transition hover:bg-white/85 sm:px-6 sm:py-3 sm:text-base"
+              className="glow-white flex items-center gap-2 rounded bg-white px-5 py-2.5 text-sm font-bold text-black transition-shadow hover:bg-white/90 sm:px-6 sm:py-3 sm:text-base"
             >
               <Play size={20} fill="black" /> Play
             </Link>
           </motion.div>
           {trailer && (
             <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.94 }}
               onClick={() => onTrailer?.(trailer.key, title)}
-              className="flex items-center gap-2 rounded bg-neutral-500/40 px-5 py-2.5 text-sm font-bold text-white backdrop-blur transition hover:bg-neutral-500/60 sm:px-6 sm:py-3 sm:text-base"
+              className="flex items-center gap-2 rounded border border-white/15 bg-neutral-500/30 px-5 py-2.5 text-sm font-bold text-white backdrop-blur transition hover:border-white/40 hover:bg-neutral-500/50 sm:px-6 sm:py-3 sm:text-base"
             >
               <Clapperboard size={20} /> Trailer
             </motion.button>
           )}
-          <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }}>
             <Link
               href={infoHref}
-              className="flex items-center gap-2 rounded bg-neutral-500/40 px-5 py-2.5 text-sm font-bold text-white backdrop-blur transition hover:bg-neutral-500/60 sm:px-6 sm:py-3 sm:text-base"
+              className="flex items-center gap-2 rounded border border-white/15 bg-neutral-500/30 px-5 py-2.5 text-sm font-bold text-white backdrop-blur transition hover:border-white/40 hover:bg-neutral-500/50 sm:px-6 sm:py-3 sm:text-base"
             >
               <Info size={20} /> More Info
             </Link>

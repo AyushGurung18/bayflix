@@ -63,6 +63,25 @@ export interface TmdbListResponse<T = TmdbItem> {
   total_results?: number;
 }
 
+export interface TmdbCombinedCreditItem extends TmdbItem {
+  media_type: MediaType;
+  character?: string;
+  popularity?: number;
+}
+
+export interface TmdbPerson {
+  id: number;
+  name: string;
+  biography?: string;
+  birthday?: string | null;
+  deathday?: string | null;
+  place_of_birth?: string | null;
+  profile_path?: string | null;
+  known_for_department?: string;
+  combined_credits?: { cast: TmdbCombinedCreditItem[] };
+  success?: boolean;
+}
+
 /** Result shape of lib/bayflix-api's getRatings() / the worker's GET /ratings. */
 export interface RatingsResult {
   configured?: boolean;

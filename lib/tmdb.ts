@@ -1,6 +1,6 @@
 "use client";
 
-import type { MediaType, TmdbDetails, TmdbItem, TmdbListResponse, TmdbVideo } from "./types";
+import type { MediaType, TmdbDetails, TmdbItem, TmdbListResponse, TmdbPerson, TmdbVideo } from "./types";
 
 async function fetchTmdb<T>(path: string, params: Record<string, string | number | boolean> = {}): Promise<T> {
   const query = new URLSearchParams(
@@ -72,6 +72,10 @@ export function fetchTVDetails(id: number | string) {
 
 export function searchMulti(query: string, page = 1) {
   return fetchTmdb<ListResult>("search/multi", { query, page, include_adult: false });
+}
+
+export function fetchPersonDetails(id: number | string) {
+  return fetchTmdb<TmdbPerson>(`person/${id}`, { append_to_response: "combined_credits" });
 }
 
 // Picks the best trailer for a title: prefer an official YouTube "Trailer",
