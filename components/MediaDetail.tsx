@@ -231,26 +231,32 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
             <WatchlistButton item={data} mediaType={mediaType} variant="pill" />
           </div>
 
-          {!isTV && (
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:max-w-2xl sm:grid-cols-3">
-              <StatCard icon={Calendar} label="Release Date" value={date || "—"} />
-              <StatCard icon={Clock} label="Runtime" value={formatRuntime(data.runtime) || "—"} />
-              <StatCard icon={DollarSign} label="Budget" value={formatMoney(data.budget)} />
-              <StatCard icon={TrendingUp} label="Revenue" value={formatMoney(data.revenue)} />
-              <StatCard icon={Globe} label="Language" value={data.spoken_languages?.[0]?.name || "—"} />
-              <StatCard icon={BadgeCheck} label="Status" value={data.status || "—"} />
-            </div>
-          )}
-          {isTV && (
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:max-w-2xl sm:grid-cols-3">
-              <StatCard icon={Calendar} label="First Air Date" value={date || "—"} />
-              <StatCard icon={Layers} label="Seasons" value={data.number_of_seasons ?? "—"} />
-              <StatCard icon={Tv} label="Episodes" value={data.number_of_episodes ?? "—"} />
-              <StatCard icon={BadgeCheck} label="Status" value={data.status || "—"} />
-            </div>
-          )}
+          <div className="mt-8 flex flex-col gap-8 lg:flex-row">
+            <div className="min-w-0 lg:w-[420px] lg:shrink-0">
+              {!isTV && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2">
+                  <StatCard icon={Calendar} label="Release Date" value={date || "—"} />
+                  <StatCard icon={Clock} label="Runtime" value={formatRuntime(data.runtime) || "—"} />
+                  <StatCard icon={DollarSign} label="Budget" value={formatMoney(data.budget)} />
+                  <StatCard icon={TrendingUp} label="Revenue" value={formatMoney(data.revenue)} />
+                  <StatCard icon={Globe} label="Language" value={data.spoken_languages?.[0]?.name || "—"} />
+                  <StatCard icon={BadgeCheck} label="Status" value={data.status || "—"} />
+                </div>
+              )}
+              {isTV && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2">
+                  <StatCard icon={Calendar} label="First Air Date" value={date || "—"} />
+                  <StatCard icon={Layers} label="Seasons" value={data.number_of_seasons ?? "—"} />
+                  <StatCard icon={Tv} label="Episodes" value={data.number_of_episodes ?? "—"} />
+                  <StatCard icon={BadgeCheck} label="Status" value={data.status || "—"} />
+                </div>
+              )}
 
-          <WatchProviders results={data["watch/providers"]?.results} />
+              <WatchProviders results={data["watch/providers"]?.results} />
+            </div>
+
+            <ReviewsSection reviews={data.reviews?.results} className="min-w-0 flex-1" />
+          </div>
         </div>
       </div>
 
@@ -291,8 +297,6 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
       )}
 
       {isTV && <SeasonsEpisodes key={data.id} tvId={data.id} seasons={data.seasons} />}
-
-      <ReviewsSection reviews={data.reviews?.results} />
 
       {recommendations.length > 0 && (
         <div className="mt-6">

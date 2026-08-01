@@ -10,6 +10,12 @@ interface WatchProvidersProps {
   results?: Record<string, WatchProviderCountry>;
 }
 
+function flagEmoji(countryCode: string): string {
+  return countryCode
+    .toUpperCase()
+    .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
+}
+
 function detectCountry(available: string[]): string {
   if (typeof navigator === "undefined") return available[0] ?? "US";
   const region = navigator.language?.split("-")[1]?.toUpperCase();
@@ -36,7 +42,8 @@ export default function WatchProviders({ results }: WatchProvidersProps) {
     <div className="mt-8 sm:max-w-2xl">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-200">
-          <Tv size={16} className="text-brand" /> Where to Watch
+          <Tv size={16} className="text-brand" /> Where to Watch{" "}
+          <span aria-hidden>{flagEmoji(country)}</span>
         </h3>
         {countries.length > 1 && (
           <select
@@ -46,7 +53,7 @@ export default function WatchProviders({ results }: WatchProvidersProps) {
           >
             {countries.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {flagEmoji(c)} {c}
               </option>
             ))}
           </select>

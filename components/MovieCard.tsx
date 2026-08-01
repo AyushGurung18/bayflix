@@ -114,19 +114,18 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
         )}
       </Link>
 
-      {/* Pops out above the card and its neighbours as a real 16:9 preview,
-          instead of being squeezed into the card's own (2:3) bounds — that
-          squeeze is what was forcing the old version to crop/scale the
-          YouTube embed and causing it to overflow its box. */}
+      {/* Floats entirely above the card — anchored by its own bottom edge to
+          the card's top edge — so it only ever overlaps neighbouring cards'
+          space, never this card's own poster underneath it. */}
       <AnimatePresence>
         {expanded && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: -8 }}
-            animate={{ opacity: 1, scale: 1, y: -18 }}
-            exit={{ opacity: 0, scale: 0.9, y: -8 }}
+            initial={{ opacity: 0, scale: 0.9, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 8 }}
             transition={{ type: "spring", stiffness: 340, damping: 28 }}
-            style={{ transformOrigin: "top center" }}
-            className="absolute left-1/2 top-0 z-30 w-[340px] -translate-x-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[440px]"
+            style={{ transformOrigin: "bottom center" }}
+            className="absolute bottom-full left-1/2 z-30 mb-3 w-[340px] -translate-x-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[440px]"
           >
             <Link href={infoHref} className="relative block aspect-video w-full overflow-hidden bg-black">
               {showVideo && trailerKey ? (

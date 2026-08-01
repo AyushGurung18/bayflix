@@ -17,18 +17,21 @@ function timeAgo(dateStr: string): string {
 
 interface ReviewsSectionProps {
   reviews?: TmdbReview[];
+  className?: string;
 }
 
-export default function ReviewsSection({ reviews }: ReviewsSectionProps) {
+export default function ReviewsSection({ reviews, className = "" }: ReviewsSectionProps) {
   if (!reviews || reviews.length === 0) return null;
 
   return (
-    <div className="mt-10 px-4 sm:px-10">
+    <div className={className}>
       <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold">
         <MessageSquare size={18} className="text-brand" /> Reviews
       </h2>
-      <div className="flex flex-col gap-4 sm:max-w-3xl">
-        {reviews.slice(0, 6).map((review) => (
+      {/* Capped height with its own scroll — reviews can run long, and this
+          keeps the overall page from growing much taller just to fit them. */}
+      <div className="flex max-h-[560px] flex-col gap-4 overflow-y-auto pr-1">
+        {reviews.slice(0, 10).map((review) => (
           <ReviewCard key={review.id} review={review} />
         ))}
       </div>

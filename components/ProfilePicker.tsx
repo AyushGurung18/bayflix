@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Pencil, Trash2, X, Check } from "lucide-react";
@@ -19,18 +19,34 @@ const COLORS = [
   "#ca8a04",
 ];
 
+interface Wipe {
+  x: number;
+  y: number;
+  radius: number;
+  color: string;
+}
+
+const WIPE_DURATION = 0.6;
+
 export default function ProfilePicker() {
   const router = useRouter();
   const { profiles, loading, selectProfile, addProfile, removeProfile } = useProfiles();
-  const [zoomingId, setZoomingId] = useState<string | null>(null);
+  const [wipe, setWipe] = useState<Wipe | null>(null);
   const [managing, setManaging] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  const handlePick = (profile: Profile) => {
-    if (managing) return;
-    setZoomingId(profile.id);
+  const handlePick = (profile: Profile, e: MouseEvent<HTMLButtonElement>) => {
+    if (managing || wipe) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const radius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    );
+    setWipe({ x, y, radius, color: profile.avatar_color });
     selectProfile(profile.id);
-    setTimeout(() => router.push("/browse"), 550);
+    setTimeout(() => router.push("/browse"), WIPE_DURATION * 1000);
   };
 
   if (loading) {
@@ -63,17 +79,13 @@ export default function ProfilePicker() {
               key={profile.id}
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
               exit={{ opacity: 0, scale: 0.8 }}
-              animate={
-                zoomingId === profile.id
-                  ? { scale: 6, opacity: 0, transition: { duration: 0.55, ease: "easeIn" } }
-                  : zoomingId
-                    ? { opacity: 0, transition: { duration: 0.3 } }
-                    : undefined
-              }
+              animate={wipe ? { opacity: wipe.color === profile.avatar_color ? 1 : 0.15 } : undefined}
+              transition={{ duration: 0.3 }}
               className="group relative flex flex-col items-center gap-3"
             >
               <button
-                onClick={() => handlePick(profile)}
+                onClick={(e) => handlePick(profile, e)}
+                disabled={!!wipe}
                 className="relative flex h-24 w-24 items-center justify-center rounded-xl text-4xl shadow-lg ring-2 ring-transparent transition-all group-hover:scale-105 group-hover:ring-white sm:h-32 sm:w-32 sm:text-5xl"
                 style={{ backgroundColor: profile.avatar_color }}
               >
@@ -97,7 +109,7 @@ export default function ProfilePicker() {
           ))}
         </AnimatePresence>
 
-        {profiles.length < 5 && !zoomingId && (
+        {profiles.length < 5 && !wipe && (
           <motion.div
             variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
             className="flex flex-col items-center gap-3"
@@ -113,7 +125,7 @@ export default function ProfilePicker() {
         )}
       </motion.div>
 
-      {!zoomingId && profiles.length > 0 && (
+      {!wipe && profiles.length > 0 && (
         <motion.button
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -131,6 +143,22 @@ export default function ProfilePicker() {
 
       <AnimatePresence>
         {creating && <CreateProfileModal onClose={() => setCreating(false)} onCreate={addProfile} />}
+      </AnimatePresence>
+
+      {/* A real circular reveal wipe, expanding from the clicked avatar's
+          exact screen position out past the farthest corner — reads as
+          "zooming into" that profile instead of a flex item awkwardly
+          scaling up in place (which fought the layout and clipped oddly). */}
+      <AnimatePresence>
+        {wipe && (
+          <motion.div
+            initial={{ clipPath: `circle(0px at ${wipe.x}px ${wipe.y}px)` }}
+            animate={{ clipPath: `circle(${wipe.radius}px at ${wipe.x}px ${wipe.y}px)` }}
+            transition={{ duration: WIPE_DURATION, ease: [0.65, 0, 0.35, 1] }}
+            className="fixed inset-0 z-[999]"
+            style={{ backgroundColor: wipe.color }}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

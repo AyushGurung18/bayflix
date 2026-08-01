@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Hero from "@/components/Hero";
 import MovieRow from "@/components/MovieRow";
+import LazyMovieRow from "@/components/LazyMovieRow";
 import TrailerModal from "@/components/TrailerModal";
-import { SkeletonBrowse } from "@/components/Skeletons";
+import { SkeletonHero, SkeletonRow } from "@/components/Skeletons";
 import { useTrailer } from "@/lib/use-trailer";
 import { useWatchStatus } from "@/lib/watch-status-context";
 import { useProfiles } from "@/lib/profile-context";
@@ -21,96 +22,63 @@ import {
 } from "@/lib/tmdb";
 import type { TmdbDetails, TmdbItem } from "@/lib/types";
 
-interface BrowseRows {
-  popular: TmdbItem[];
-  trending: TmdbItem[];
-  upcoming: TmdbItem[];
-  nowPlaying: TmdbItem[];
-  topRated: TmdbItem[];
-  popularSeries: TmdbItem[];
-  trendingSeries: TmdbItem[];
-}
-
-const EMPTY_ROWS: BrowseRows = {
-  popular: [],
-  trending: [],
-  upcoming: [],
-  nowPlaying: [],
-  topRated: [],
-  popularSeries: [],
-  trendingSeries: [],
-};
-
 export default function BrowsePage() {
-  const [rows, setRows] = useState<BrowseRows | null>(null);
+  // Trending and popular are fetched eagerly — they're what's visible
+  // without scrolling, so they drive the initial paint. Everything below
+  // the fold (LazyMovieRow rows) only fetches once it's about to scroll
+  // into view, instead of every category racing on mount and blocking a
+  // single full-page skeleton.
+  const [trending, setTrending] = useState<TmdbItem[] | null>(null);
+  const [popular, setPopular] = useState<TmdbItem[] | null>(null);
   const [heroMovie, setHeroMovie] = useState<TmdbDetails | null>(null);
   const [recommendations, setRecommendations] = useState<TmdbItem[]>([]);
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
-  const { configured, watchlist, watched } = useWatchStatus();
+  const { configured, watchlist, watched, ratings } = useWatchStatus();
   const { activeProfile } = useProfiles();
   const watchedRows = [...watched].reverse();
 
   useEffect(() => {
-    if (!configured || !activeProfile || watched.length === 0) return;
+    if (!configured || !activeProfile || (watched.length === 0 && ratings.length === 0)) return;
     let cancelled = false;
     getRecommendations(activeProfile.id).then((results) => !cancelled && setRecommendations(results));
     return () => {
       cancelled = true;
     };
-    // Deliberately depends on watched.length (not the watched array itself)
-    // so this only re-fires when a title is actually added, not every render.
-  }, [configured, activeProfile, watched.length]);
+    // Deliberately depends on watched.length/ratings.length (not the arrays
+    // themselves) so this only re-fires when a title is actually added, not
+    // every render.
+  }, [configured, activeProfile, watched.length, ratings.length]);
 
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
-      try {
-        const [popular, trending, upcoming, nowPlaying, topRated, popularSeries, trendingSeries] =
-          await Promise.all([
-            fetchPopularMovies(),
-            fetchTrendingMovies(),
-            fetchUpcomingMovies(),
-            fetchNowPlayingMovies(),
-            fetchTopRatedMovies(),
-            fetchPopularSeries(),
-            fetchTrendingSeries(),
-          ]);
-
+    fetchTrendingMovies()
+      .then((data) => {
         if (cancelled) return;
-
-        setRows({
-          popular: popular.results ?? [],
-          trending: trending.results ?? [],
-          upcoming: upcoming.results ?? [],
-          nowPlaying: nowPlaying.results ?? [],
-          topRated: topRated.results ?? [],
-          popularSeries: popularSeries.results ?? [],
-          trendingSeries: trendingSeries.results ?? [],
-        });
-
-        const featured = (trending.results ?? popular.results ?? [])[0];
-        if (featured) {
-          const details = await fetchMovieDetails(featured.id);
-          if (!cancelled) setHeroMovie(details);
-        }
-      } catch (error) {
-        console.error("Failed to load dashboard", error);
-        if (!cancelled) setRows(EMPTY_ROWS);
-      }
-    }
-
-    load();
+        const results = data.results ?? [];
+        setTrending(results);
+        const featured = results[0];
+        return featured ? fetchMovieDetails(featured.id) : null;
+      })
+      .then((details) => !cancelled && details && setHeroMovie(details))
+      .catch((err) => console.error("Failed to load trending", err));
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (!rows) return <SkeletonBrowse />;
+  useEffect(() => {
+    let cancelled = false;
+    fetchPopularMovies()
+      .then((data) => !cancelled && setPopular(data.results ?? []))
+      .catch((err) => console.error("Failed to load popular", err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="pb-16">
-      <Hero item={heroMovie} mediaType="movie" onTrailer={openTrailerDirect} />
+      {heroMovie ? <Hero item={heroMovie} mediaType="movie" onTrailer={openTrailerDirect} /> : <SkeletonHero />}
 
       <div className="relative z-10 -mt-10 sm:-mt-16">
         {configured && recommendations.length > 0 && (
@@ -127,52 +95,63 @@ export default function BrowsePage() {
         {configured && watchedRows.length > 0 && (
           <MovieRow title="Watched" items={watchedRows} onTrailer={openTrailer} />
         )}
-        <MovieRow
-          title="Top 10 in Movies Today"
-          items={rows.trending}
-          mediaType="movie"
-          exploreHref="/category/trending"
-          onTrailer={openTrailer}
-          showRank
-        />
-        <MovieRow
-          title="Popular Movies"
-          items={rows.popular}
-          mediaType="movie"
-          exploreHref="/category/popular"
-          onTrailer={openTrailer}
-        />
-        <MovieRow
+
+        {trending ? (
+          <MovieRow
+            title="Top 10 in Movies Today"
+            items={trending}
+            mediaType="movie"
+            exploreHref="/category/trending"
+            onTrailer={openTrailer}
+            showRank
+          />
+        ) : (
+          <SkeletonRow />
+        )}
+
+        {popular ? (
+          <MovieRow
+            title="Popular Movies"
+            items={popular}
+            mediaType="movie"
+            exploreHref="/category/popular"
+            onTrailer={openTrailer}
+          />
+        ) : (
+          <SkeletonRow />
+        )}
+
+        <LazyMovieRow
           title="Popular TV Shows"
-          items={rows.popularSeries}
+          fetcher={fetchPopularSeries}
           mediaType="tv"
           exploreHref="/category/popular"
           onTrailer={openTrailer}
         />
-        <MovieRow
+        <LazyMovieRow
           title="Now Playing"
-          items={rows.nowPlaying}
+          fetcher={fetchNowPlayingMovies}
           mediaType="movie"
           exploreHref="/category/now-playing"
           onTrailer={openTrailer}
         />
-        <MovieRow
+        <LazyMovieRow
           title="Upcoming"
-          items={rows.upcoming}
+          fetcher={fetchUpcomingMovies}
           mediaType="movie"
           exploreHref="/category/upcoming"
           onTrailer={openTrailer}
         />
-        <MovieRow
+        <LazyMovieRow
           title="Top Rated"
-          items={rows.topRated}
+          fetcher={fetchTopRatedMovies}
           mediaType="movie"
           exploreHref="/category/top-rated"
           onTrailer={openTrailer}
         />
-        <MovieRow
+        <LazyMovieRow
           title="Trending Series"
-          items={rows.trendingSeries}
+          fetcher={fetchTrendingSeries}
           mediaType="tv"
           exploreHref="/category/trending"
           onTrailer={openTrailer}

@@ -4,6 +4,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { ProfileProvider } from "@/lib/profile-context";
 import { WatchStatusProvider } from "@/lib/watch-status-context";
 import SmoothScroll from "@/components/SmoothScroll";
+import AmbientEffects from "@/components/AmbientEffects";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
@@ -33,8 +34,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </linearGradient>
           </defs>
         </svg>
-        <div className="cinematic-vignette" />
-        <div className="grain-overlay" />
+        <AmbientEffects />
         <SmoothScroll />
         <AuthProvider>
           <ProfileProvider>
