@@ -133,7 +133,7 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.85 }}
               transition={{ type: "spring", stiffness: 340, damping: 28 }}
-              className="absolute left-1/2 top-1/2 z-30 w-[280px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[360px]"
+              className="absolute left-1/2 top-1/2 z-30 w-[320px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[420px]"
             >
               <Link href={infoHref} className="relative block aspect-video w-full overflow-hidden bg-black">
                 {showVideo && trailerKey ? (
