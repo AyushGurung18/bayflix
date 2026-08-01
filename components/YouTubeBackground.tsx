@@ -25,7 +25,7 @@ export default function YouTubeBackground({ videoId, muted }: YouTubeBackgroundP
       src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=${
         muted ? 1 : 0
       }&controls=0&loop=1&playlist=${videoId}&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1&modestbranding=1`}
-      allow="autoplay; encrypted-media"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       className="yt-cover"
     />
   );

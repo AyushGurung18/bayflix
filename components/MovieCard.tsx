@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,16 +13,8 @@ import type { MediaType, TmdbItem } from "@/lib/types";
 
 const HOVER_DELAY = 400; // Netflix-style pause before the preview pops up
 const VIDEO_DELAY = 500; // extra beat after expanding before the trailer starts
-const POPUP_WIDTH = 340;
-const POPUP_WIDTH_SM = 440;
 
 const NEW_WINDOW_DAYS = 45;
-
-interface PopupAnchor {
-  top: number;
-  left?: number;
-  right?: number;
-}
 
 interface MovieCardProps {
   item: TmdbItem;
@@ -33,12 +24,17 @@ interface MovieCardProps {
   rank?: number;
 }
 
+// Deliberately simple: expands in place, centered on and overlapping the
+// card itself (like Netflix's own hover preview actually does) instead of
+// portaling out to viewport coordinates or dodging to a side. Several
+// attempts at "don't cover the card"/"portal to body" positioning each
+// introduced their own failure (CSS clipping, portal not rendering) — this
+// is the version with the fewest moving parts, built on the video embed
+// that's confirmed working (Hero autoplays fine with the same component).
 export default function MovieCard({ item, mediaType, onTrailer, priority = false, rank }: MovieCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [trailerKey, setTrailerKey] = useState<string | null | undefined>(undefined); // undefined = not fetched yet, null = none found
-  const [anchor, setAnchor] = useState<PopupAnchor | null>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const videoTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -59,20 +55,6 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
     };
   }, [expanded, trailerKey, type, item?.id]);
 
-  // A hover popup positioned relative to a scrolled-away card looks broken,
-  // so any scroll (page or the row's own horizontal scroll) just closes it.
-  useEffect(() => {
-    if (!expanded) return;
-    const close = () => {
-      clearTimeout(hoverTimeout.current);
-      clearTimeout(videoTimeout.current);
-      setExpanded(false);
-      setShowVideo(false);
-    };
-    window.addEventListener("scroll", close, true);
-    return () => window.removeEventListener("scroll", close, true);
-  }, [expanded]);
-
   if (!item?.poster_path && !item?.backdrop_path) return null;
 
   const title = item.title || item.name || "Untitled";
@@ -89,16 +71,6 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
 
   const handleEnter = () => {
     hoverTimeout.current = setTimeout(() => {
-      const rect = wrapperRef.current?.getBoundingClientRect();
-      if (rect && typeof window !== "undefined") {
-        const popupWidth = window.innerWidth < 640 ? POPUP_WIDTH : POPUP_WIDTH_SM;
-        const fitsRight = rect.right + popupWidth + 16 <= window.innerWidth;
-        setAnchor({
-          top: rect.top + rect.height / 2,
-          left: fitsRight ? rect.right + 10 : undefined,
-          right: fitsRight ? undefined : window.innerWidth - rect.left + 10,
-        });
-      }
       setExpanded(true);
       videoTimeout.current = setTimeout(() => setShowVideo(true), VIDEO_DELAY);
     }, HOVER_DELAY);
@@ -131,7 +103,6 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
       )}
 
       <div
-        ref={wrapperRef}
         className="relative z-10 w-[200px] shrink-0 sm:w-[260px]"
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
@@ -155,92 +126,70 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
           )}
         </Link>
 
-        {/* Portaled straight to <body> and positioned with viewport
-            coordinates — anchoring it inside the row was at the mercy of
-            the row scroller's own overflow-x/overflow-y clipping (a real
-            CSS gotcha: setting overflow-x forces overflow-y to clip too,
-            even when set to "visible"), which is why it kept ending up
-            invisible. Placed to whichever side (left/right) has room, so
-            it overlaps neighbouring cards, never this card's own poster. */}
         <AnimatePresence>
-          {expanded &&
-            anchor &&
-            typeof document !== "undefined" &&
-            createPortal(
-              <div
-                style={{
-                  position: "fixed",
-                  top: anchor.top,
-                  left: anchor.left,
-                  right: anchor.right,
-                  transform: "translateY(-50%)",
-                }}
-                className="z-[999]"
-              >
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ type: "spring", stiffness: 340, damping: 28 }}
-                  className="w-[340px] overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[440px]"
-                >
-                  <Link href={infoHref} className="relative block aspect-video w-full overflow-hidden bg-black">
-                    {showVideo && trailerKey ? (
-                      <YouTubeBackground videoId={trailerKey} muted />
-                    ) : (
-                      <Backdrop item={item} title={title} />
-                    )}
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-raised via-transparent to-transparent" />
-                  </Link>
-                  <div className="p-3">
-                    <div className="mb-2 flex items-center gap-1.5">
-                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                        <Link
-                          href={`/watch/${item.id}?type=${type}&title=${encodeURIComponent(title)}`}
-                          className="glow-white flex h-8 w-8 items-center justify-center rounded-full bg-white text-black transition hover:bg-white/85"
-                          aria-label={`Play ${title}`}
-                        >
-                          <Play size={15} fill="black" className="ml-0.5" />
-                        </Link>
-                      </motion.div>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => onTrailer?.(item, type)}
-                        className="flex h-8 items-center gap-1 rounded-full border border-neutral-500 px-2.5 text-xs font-semibold text-white transition hover:border-white"
+          {expanded && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              transition={{ type: "spring", stiffness: 340, damping: 28 }}
+              className="absolute left-1/2 top-1/2 z-30 w-[280px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[360px]"
+            >
+              <Link href={infoHref} className="relative block aspect-video w-full overflow-hidden bg-black">
+                {showVideo && trailerKey ? (
+                  <YouTubeBackground videoId={trailerKey} muted />
+                ) : (
+                  <Backdrop item={item} title={title} />
+                )}
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-raised via-transparent to-transparent" />
+              </Link>
+              <div className="p-3">
+                <div className="mb-2 flex items-center gap-1.5">
+                  <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                    <Link
+                      href={`/watch/${item.id}?type=${type}&title=${encodeURIComponent(title)}`}
+                      className="glow-white flex h-8 w-8 items-center justify-center rounded-full bg-white text-black transition hover:bg-white/85"
+                      aria-label={`Play ${title}`}
+                    >
+                      <Play size={15} fill="black" className="ml-0.5" />
+                    </Link>
+                  </motion.div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => onTrailer?.(item, type)}
+                    className="flex h-8 items-center gap-1 rounded-full border border-neutral-500 px-2.5 text-xs font-semibold text-white transition hover:border-white"
+                  >
+                    Trailer
+                  </motion.button>
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <WatchlistButton item={item} mediaType={type} size={14} />
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                      <Link
+                        href={infoHref}
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-500 text-white transition hover:border-white"
+                        aria-label="More info"
                       >
-                        Trailer
-                      </motion.button>
-                      <div className="ml-auto flex items-center gap-1.5">
-                        <WatchlistButton item={item} mediaType={type} size={14} />
-                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                          <Link
-                            href={infoHref}
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-500 text-white transition hover:border-white"
-                            aria-label="More info"
-                          >
-                            <Info size={15} />
-                          </Link>
-                        </motion.div>
-                      </div>
-                    </div>
-                    <p className="truncate text-sm font-semibold text-white">{title}</p>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-neutral-400">
-                      {rating && (
-                        <span className="flex items-center gap-0.5 text-green-400">
-                          <Star size={11} fill="currentColor" /> {rating}
-                        </span>
-                      )}
-                      {year && <span>{year}</span>}
-                      <span className="rounded border border-neutral-500 px-1 text-[10px] uppercase">
-                        {type === "tv" ? "Series" : "Movie"}
-                      </span>
-                    </div>
+                        <Info size={15} />
+                      </Link>
+                    </motion.div>
                   </div>
-                </motion.div>
-              </div>,
-              document.body
-            )}
+                </div>
+                <p className="truncate text-sm font-semibold text-white">{title}</p>
+                <div className="mt-1 flex items-center gap-2 text-xs text-neutral-400">
+                  {rating && (
+                    <span className="flex items-center gap-0.5 text-green-400">
+                      <Star size={11} fill="currentColor" /> {rating}
+                    </span>
+                  )}
+                  {year && <span>{year}</span>}
+                  <span className="rounded border border-neutral-500 px-1 text-[10px] uppercase">
+                    {type === "tv" ? "Series" : "Movie"}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </div>
