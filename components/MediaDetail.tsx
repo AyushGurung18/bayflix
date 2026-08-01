@@ -7,12 +7,13 @@ import { Play, Clapperboard } from "lucide-react";
 import { SkeletonDetail } from "./Skeletons";
 import MovieRow from "./MovieRow";
 import TrailerModal from "./TrailerModal";
-import RatingsBadges from "./RatingsBadges";
+import CircularRatings from "./CircularRatings";
 import WatchlistButton from "./WatchlistButton";
 import StarRating from "./StarRating";
 import { useTrailer } from "@/lib/use-trailer";
 import { backdropUrl, posterUrl, pickTrailer, fetchMovieDetails, fetchTVDetails } from "@/lib/tmdb";
 import { getRatings } from "@/lib/bayflix-api";
+import { BLUR_DATA_URL } from "@/lib/image-utils";
 import type { MediaType, RatingsResult, TmdbDetails } from "@/lib/types";
 
 function formatRuntime(minutes?: number) {
@@ -100,6 +101,8 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
             alt=""
             fill
             priority
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
             className="object-cover object-top"
           />
         )}
@@ -110,7 +113,14 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
       <div className="relative z-10 -mt-24 flex flex-col gap-6 px-4 sm:-mt-32 sm:flex-row sm:px-10">
         <div className="relative mx-auto h-64 w-44 shrink-0 overflow-hidden rounded-lg shadow-2xl sm:mx-0 sm:h-72 sm:w-48">
           {data.poster_path ? (
-            <Image src={posterUrl(data.poster_path, "w500") ?? ""} alt={title} fill className="object-cover" />
+            <Image
+              src={posterUrl(data.poster_path, "w500") ?? ""}
+              alt={title}
+              fill
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
+              className="object-cover"
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-ink-card text-neutral-600">
               No poster
@@ -131,8 +141,8 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
             )}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-4">
-            <RatingsBadges ratings={ratings} tmdbScore={data.vote_average} />
+          <div className="mt-4 flex flex-wrap items-center gap-5">
+            <CircularRatings ratings={ratings} tmdbScore={data.vote_average} />
             <StarRating item={data} mediaType={mediaType} />
           </div>
 
@@ -204,6 +214,8 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
                       src={posterUrl(person.profile_path, "w185") ?? ""}
                       alt={person.name}
                       fill
+                      placeholder="blur"
+                      blurDataURL={BLUR_DATA_URL}
                       className="object-cover"
                     />
                   )}

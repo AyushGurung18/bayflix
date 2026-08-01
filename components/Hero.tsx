@@ -6,6 +6,7 @@ import Image from "next/image";
 import { motion, type Variants } from "framer-motion";
 import { Play, Info, Volume2, VolumeX, Clapperboard, Star } from "lucide-react";
 import { backdropUrl, pickTrailer } from "@/lib/tmdb";
+import { BLUR_DATA_URL } from "@/lib/image-utils";
 import type { MediaType, TmdbDetails } from "@/lib/types";
 
 const container: Variants = {
@@ -59,6 +60,8 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
               alt=""
               fill
               priority
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
               className="object-cover object-top"
             />
           </motion.div>
@@ -81,6 +84,10 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
 
       <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/20 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-ink/90 via-ink/10 to-transparent" />
+      <div
+        className="pointer-events-none absolute -bottom-1/4 -left-1/4 h-[70%] w-[60%] rounded-full opacity-30 blur-[100px]"
+        style={{ background: "radial-gradient(circle, var(--color-brand) 0%, transparent 70%)" }}
+      />
 
       <motion.div
         variants={container}

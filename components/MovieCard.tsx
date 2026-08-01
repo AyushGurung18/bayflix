@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Info, Film, Star, Volume2, VolumeX } from "lucide-react";
 import { posterUrl, backdropUrl, fetchMovieVideos, fetchTVVideos, pickTrailer } from "@/lib/tmdb";
+import { BLUR_DATA_URL } from "@/lib/image-utils";
 import WatchlistButton from "./WatchlistButton";
 import type { MediaType, TmdbItem } from "@/lib/types";
 
@@ -185,6 +186,8 @@ function Poster({ item, title, priority }: { item: TmdbItem; title: string; prio
       alt={title}
       fill
       priority={priority}
+      placeholder="blur"
+      blurDataURL={BLUR_DATA_URL}
       sizes="(max-width: 640px) 180px, 230px"
       className="object-cover"
     />
@@ -205,6 +208,8 @@ function Backdrop({ item, title }: { item: TmdbItem; title: string }) {
       src={(item.backdrop_path ? backdropUrl(src, "w780") : posterUrl(src, "w342")) ?? ""}
       alt={title}
       fill
+      placeholder="blur"
+      blurDataURL={BLUR_DATA_URL}
       sizes="230px"
       className="object-cover"
     />

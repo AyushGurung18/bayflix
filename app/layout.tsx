@@ -23,6 +23,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-sans antialiased bg-ink text-neutral-100">
+        <div className="grain-overlay" />
         <SmoothScroll />
         <AuthProvider>
           <WatchStatusProvider>{children}</WatchStatusProvider>
