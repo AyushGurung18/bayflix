@@ -41,6 +41,8 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
   // no separate toggle on the card itself, which would mean remounting
   // this specific iframe on every hover, on top of the one it already gets.
   const [muted] = usePersistentMute();
+  const [align, setAlign] = useState<"left" | "center" | "right">("center");
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const videoTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -77,6 +79,14 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
 
   const handleEnter = () => {
     hoverTimeout.current = setTimeout(() => {
+      const rect = wrapperRef.current?.getBoundingClientRect();
+      if (rect && typeof window !== "undefined") {
+        const popupWidth = window.innerWidth < 640 ? 360 : 480;
+        const cardCenter = rect.left + rect.width / 2;
+        if (cardCenter - popupWidth / 2 < 8) setAlign("left");
+        else if (cardCenter + popupWidth / 2 > window.innerWidth - 8) setAlign("right");
+        else setAlign("center");
+      }
       setExpanded(true);
       videoTimeout.current = setTimeout(() => setShowVideo(true), VIDEO_DELAY);
     }, HOVER_DELAY);
@@ -109,6 +119,7 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
       )}
 
       <div
+        ref={wrapperRef}
         // z-10 normally (just needs to sit above the rank number behind
         // it), bumped to z-50 while expanded — otherwise the popup's own
         // z-30 is trapped inside THIS z-index's stacking context and can't
@@ -145,7 +156,9 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.85 }}
               transition={{ type: "spring", stiffness: 340, damping: 28 }}
-              className="absolute left-1/2 top-1/2 z-30 w-[360px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[480px]"
+              className={`absolute top-1/2 z-30 w-[360px] -translate-y-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[480px] ${
+                align === "left" ? "left-0" : align === "right" ? "right-0" : "left-1/2 -translate-x-1/2"
+              }`}
             >
               <Link href={infoHref} className="relative block aspect-video w-full overflow-hidden bg-black">
                 {showVideo && trailerKey ? (

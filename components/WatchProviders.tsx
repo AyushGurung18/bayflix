@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Tv } from "lucide-react";
 import { posterUrl } from "@/lib/tmdb";
 import type { WatchProviderCountry, WatchProviderEntry } from "@/lib/types";
+
+const COUNTRY_KEY = "bayflix:watch-country";
 
 interface WatchProvidersProps {
   results?: Record<string, WatchProviderCountry>;
@@ -27,6 +29,19 @@ export default function WatchProviders({ results }: WatchProvidersProps) {
   const countries = Object.keys(results ?? {}).sort();
   const [countryOverride, setCountryOverride] = useState<string | null>(null);
 
+  useEffect(() => {
+    const stored = localStorage.getItem(COUNTRY_KEY);
+    // Hydrating from an external source (localStorage) on mount, not
+    // mirroring anything derivable from props/state at render time.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (stored) setCountryOverride(stored);
+  }, []);
+
+  const selectCountry = (value: string) => {
+    setCountryOverride(value);
+    localStorage.setItem(COUNTRY_KEY, value);
+  };
+
   if (countries.length === 0) return null;
 
   const country = countryOverride && countries.includes(countryOverride) ? countryOverride : detectCountry(countries);
@@ -48,7 +63,7 @@ export default function WatchProviders({ results }: WatchProvidersProps) {
         {countries.length > 1 && (
           <select
             value={country}
-            onChange={(e) => setCountryOverride(e.target.value)}
+            onChange={(e) => selectCountry(e.target.value)}
             className="rounded border border-white/10 bg-ink-card px-2 py-1 text-xs text-neutral-300 outline-none focus:border-white/30"
           >
             {countries.map((c) => (
