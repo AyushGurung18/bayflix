@@ -59,6 +59,7 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   const [notFound, setNotFound] = useState(false);
   const [ratings, setRatings] = useState<RatingsResult | null>(null);
   const [showHeroVideo, setShowHeroVideo] = useState(false);
+  const [heroVideoFailed, setHeroVideoFailed] = useState(false);
   const [heroMuted, toggleHeroMuted] = usePersistentMute();
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
 
@@ -84,6 +85,10 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   }, [id, mediaType]);
 
   useEffect(() => {
+    // Deliberate reset in response to `data` changing (a new title loaded),
+    // not derivable at render time.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHeroVideoFailed(false);
     if (!data) return;
     const trailer = pickTrailer(data.videos);
     if (!trailer) return;
@@ -137,16 +142,17 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
             className="object-cover object-top"
           />
         )}
-        {showHeroVideo && trailerInfo && (
+        {showHeroVideo && trailerInfo && !heroVideoFailed && (
           <YouTubeBackground
             videoId={trailerInfo.key}
             muted={heroMuted}
             className="yt-cover-frame absolute inset-0"
+            onUnavailable={() => setHeroVideoFailed(true)}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-ink/90 via-transparent to-transparent" />
-        {showHeroVideo && trailerInfo && (
+        {showHeroVideo && trailerInfo && !heroVideoFailed && (
           <button
             onClick={toggleHeroMuted}
             aria-label={heroMuted ? "Unmute trailer" : "Mute trailer"}

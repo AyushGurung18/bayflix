@@ -39,6 +39,7 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
   const [showVideo, setShowVideo] = useState(false);
   const [muted, toggleMuted] = usePersistentMute();
   const [trailerKey, setTrailerKey] = useState<string | null | undefined>(undefined); // undefined = not fetched yet, null = none found
+  const [videoFailed, setVideoFailed] = useState(false);
   const [anchor, setAnchor] = useState<PopupAnchor | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -181,12 +182,13 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
                 className="w-[340px] overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[440px]"
               >
                 <Link href={infoHref} className="relative block aspect-video w-full overflow-hidden bg-black">
-                  {showVideo && trailerKey ? (
+                  {showVideo && trailerKey && !videoFailed ? (
                     <>
                       <YouTubeBackground
                         videoId={trailerKey}
                         muted={muted}
                         className="yt-cover-frame absolute inset-0"
+                        onUnavailable={() => setVideoFailed(true)}
                       />
                       <button
                         onClick={(e) => {

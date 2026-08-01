@@ -28,11 +28,16 @@ interface HeroProps {
 
 export default function Hero({ item: media, mediaType = "movie", onTrailer }: HeroProps) {
   const [showVideo, setShowVideo] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
   const [muted, toggleMuted] = usePersistentMute();
 
   const trailer = pickTrailer(media?.videos);
 
   useEffect(() => {
+    // Deliberate reset in response to the trailer itself changing (new
+    // featured title), not derivable at render time.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setVideoFailed(false);
     if (!trailer) return;
     const timer = setTimeout(() => setShowVideo(true), 1500);
     return () => clearTimeout(timer);
@@ -54,7 +59,7 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
           <motion.div
             className="absolute inset-0"
             initial={{ scale: 1 }}
-            animate={{ scale: showVideo ? 1 : 1.08 }}
+            animate={{ scale: showVideo && !videoFailed ? 1 : 1.08 }}
             transition={{ duration: 20, ease: "linear" }}
           >
             <Image
@@ -68,7 +73,7 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
             />
           </motion.div>
         )}
-        {showVideo && trailer && (
+        {showVideo && trailer && !videoFailed && (
           <motion.div
             key={trailer.key}
             initial={{ opacity: 0 }}
@@ -76,7 +81,12 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
             transition={{ duration: 0.6 }}
             className="absolute inset-0"
           >
-            <YouTubeBackground videoId={trailer.key} muted={muted} className="yt-cover-frame absolute inset-0" />
+            <YouTubeBackground
+              videoId={trailer.key}
+              muted={muted}
+              className="yt-cover-frame absolute inset-0"
+              onUnavailable={() => setVideoFailed(true)}
+            />
           </motion.div>
         )}
       </div>
@@ -153,7 +163,7 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
             </Link>
           </motion.div>
 
-          {showVideo && trailer && (
+          {showVideo && trailer && !videoFailed && (
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
