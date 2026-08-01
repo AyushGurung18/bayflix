@@ -25,7 +25,7 @@ index_name = "bayflix-index"
 [vars]
 # Your Firebase project ID (same as NEXT_PUBLIC_FIREBASE_PROJECT_ID in the
 # Next.js app) — used to verify Firebase ID tokens (audience/issuer check).
-FIREBASE_PROJECT_ID = "REPLACE_WITH_YOUR_FIREBASE_PROJECT_ID"
+FIREBASE_PROJECT_ID = "mercurial-song-380107"
 
 # Secrets (not committed — set via CLI):
 #   wrangler secret put ADMIN_KEY
