@@ -109,7 +109,13 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
       )}
 
       <div
-        className="relative z-10 w-[200px] shrink-0 sm:w-[260px]"
+        // z-10 normally (just needs to sit above the rank number behind
+        // it), bumped to z-50 while expanded — otherwise the popup's own
+        // z-30 is trapped inside THIS z-index's stacking context and can't
+        // outrank a neighbouring card's identical z-10 context, which (on
+        // a same-z-index tie, later DOM order wins) was painting the next
+        // card over the popup's overflow into its space.
+        className={`relative w-[200px] shrink-0 sm:w-[260px] ${expanded ? "z-50" : "z-10"}`}
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
