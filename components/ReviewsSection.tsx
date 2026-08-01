@@ -30,7 +30,7 @@ export default function ReviewsSection({ reviews, className = "" }: ReviewsSecti
       </h2>
       {/* Capped height with its own scroll — reviews can run long, and this
           keeps the overall page from growing much taller just to fit them. */}
-      <div className="flex max-h-[560px] flex-col gap-4 overflow-y-auto pr-1">
+      <div data-lenis-prevent className="flex max-h-[560px] flex-col gap-4 overflow-y-auto pr-1">
         {reviews.slice(0, 10).map((review) => (
           <ReviewCard key={review.id} review={review} />
         ))}

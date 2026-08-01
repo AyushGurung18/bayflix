@@ -134,4 +134,25 @@
   .glow-white:hover {
     box-shadow: 0 10px 32px -6px rgba(255, 255, 255, 0.5);
   }
+
+  /* Forces a 16:9 YouTube embed to fully cover a container of ANY aspect
+     ratio by oversizing it in whichever dimension is short, instead of
+     YouTube's own player letterboxing/pillarboxing itself to fit — that
+     internal letterboxing is what was showing as black bars on the sides. */
+  .yt-cover-frame {
+    position: relative;
+    overflow: hidden;
+  }
+  .yt-cover-frame iframe {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100vw;
+    height: 56.25vw; /* 16:9 */
+    min-height: 100%;
+    min-width: 177.78vh; /* 16:9, inverted */
+    transform: translate(-50%, -50%);
+    border: 0;
+    pointer-events: none;
+  }
 }

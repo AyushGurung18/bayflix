@@ -25,6 +25,7 @@ import CircularRatings from "./CircularRatings";
 import WatchProviders from "./WatchProviders";
 import ReviewsSection from "./ReviewsSection";
 import SeasonsEpisodes from "./SeasonsEpisodes";
+import YouTubeBackground from "./YouTubeBackground";
 import WatchlistButton from "./WatchlistButton";
 import StarRating from "./StarRating";
 import { useTrailer } from "@/lib/use-trailer";
@@ -137,14 +138,10 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
           />
         )}
         {showHeroVideo && trailerInfo && (
-          <iframe
-            key={trailerInfo.key + heroMuted}
-            title={`${title} trailer`}
-            src={`https://www.youtube-nocookie.com/embed/${trailerInfo.key}?autoplay=1&mute=${
-              heroMuted ? 1 : 0
-            }&controls=0&loop=1&playlist=${trailerInfo.key}&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1`}
-            allow="autoplay; encrypted-media"
-            className="pointer-events-none absolute inset-0 h-full w-full scale-[1.5] border-0 sm:scale-125"
+          <YouTubeBackground
+            videoId={trailerInfo.key}
+            muted={heroMuted}
+            className="yt-cover-frame absolute inset-0"
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-transparent" />

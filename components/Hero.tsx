@@ -8,6 +8,7 @@ import { Play, Info, Volume2, VolumeX, Clapperboard, Star } from "lucide-react";
 import { backdropUrl, pickTrailer } from "@/lib/tmdb";
 import { BLUR_DATA_URL } from "@/lib/image-utils";
 import { usePersistentMute } from "@/lib/use-persistent-mute";
+import YouTubeBackground from "./YouTubeBackground";
 import type { MediaType, TmdbDetails } from "@/lib/types";
 
 const container: Variants = {
@@ -68,18 +69,15 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
           </motion.div>
         )}
         {showVideo && trailer && (
-          <motion.iframe
-            key={trailer.key + muted}
+          <motion.div
+            key={trailer.key}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6 }}
-            title="Featured trailer"
-            src={`https://www.youtube-nocookie.com/embed/${trailer.key}?autoplay=1&mute=${
-              muted ? 1 : 0
-            }&controls=0&loop=1&playlist=${trailer.key}&rel=0&iv_load_policy=3&fs=0&disablekb=1&modestbranding=1&playsinline=1`}
-            allow="autoplay; encrypted-media"
-            className="pointer-events-none absolute inset-0 h-full w-full scale-[1.5] border-0 sm:scale-125"
-          />
+            className="absolute inset-0"
+          >
+            <YouTubeBackground videoId={trailer.key} muted={muted} className="yt-cover-frame absolute inset-0" />
+          </motion.div>
         )}
       </div>
 
