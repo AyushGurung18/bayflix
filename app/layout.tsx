@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { ProfileProvider } from "@/lib/profile-context";
 import { WatchStatusProvider } from "@/lib/watch-status-context";
 import SmoothScroll from "@/components/SmoothScroll";
 import type { Metadata } from "next";
@@ -36,7 +37,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <div className="grain-overlay" />
         <SmoothScroll />
         <AuthProvider>
-          <WatchStatusProvider>{children}</WatchStatusProvider>
+          <ProfileProvider>
+            <WatchStatusProvider>{children}</WatchStatusProvider>
+          </ProfileProvider>
         </AuthProvider>
       </body>
     </html>

@@ -7,6 +7,7 @@ import TrailerModal from "@/components/TrailerModal";
 import { SkeletonBrowse } from "@/components/Skeletons";
 import { useTrailer } from "@/lib/use-trailer";
 import { useWatchStatus } from "@/lib/watch-status-context";
+import { useProfiles } from "@/lib/profile-context";
 import { getRecommendations } from "@/lib/bayflix-api";
 import {
   fetchPopularMovies,
@@ -46,18 +47,19 @@ export default function BrowsePage() {
   const [recommendations, setRecommendations] = useState<TmdbItem[]>([]);
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
   const { configured, watchlist, watched } = useWatchStatus();
+  const { activeProfile } = useProfiles();
   const watchedRows = [...watched].reverse();
 
   useEffect(() => {
-    if (!configured || watched.length === 0) return;
+    if (!configured || !activeProfile || watched.length === 0) return;
     let cancelled = false;
-    getRecommendations().then((results) => !cancelled && setRecommendations(results));
+    getRecommendations(activeProfile.id).then((results) => !cancelled && setRecommendations(results));
     return () => {
       cancelled = true;
     };
     // Deliberately depends on watched.length (not the watched array itself)
     // so this only re-fires when a title is actually added, not every render.
-  }, [configured, watched.length]);
+  }, [configured, activeProfile, watched.length]);
 
   useEffect(() => {
     let cancelled = false;

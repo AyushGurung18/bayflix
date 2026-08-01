@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Play, Info, Film, Star, Volume2, VolumeX } from "lucide-react";
 import { posterUrl, backdropUrl, fetchMovieVideos, fetchTVVideos, pickTrailer } from "@/lib/tmdb";
 import { BLUR_DATA_URL } from "@/lib/image-utils";
+import { usePersistentMute } from "@/lib/use-persistent-mute";
 import WatchlistButton from "./WatchlistButton";
 import type { MediaType, TmdbItem } from "@/lib/types";
 
@@ -26,7 +27,7 @@ interface MovieCardProps {
 export default function MovieCard({ item, mediaType, onTrailer, priority = false, rank }: MovieCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
-  const [muted, setMuted] = useState(true);
+  const [muted, toggleMuted] = usePersistentMute();
   const [trailerKey, setTrailerKey] = useState<string | null | undefined>(undefined); // undefined = not fetched yet, null = none found
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const videoTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -125,7 +126,7 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
             exit={{ opacity: 0, scale: 0.9, y: -8 }}
             transition={{ type: "spring", stiffness: 340, damping: 28 }}
             style={{ transformOrigin: "top center" }}
-            className="absolute left-1/2 top-0 z-30 w-[280px] -translate-x-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[340px]"
+            className="absolute left-1/2 top-0 z-30 w-[340px] -translate-x-1/2 overflow-hidden rounded-lg bg-ink-raised shadow-2xl ring-1 ring-white/10 sm:w-[440px]"
           >
             <Link href={infoHref} className="relative block aspect-video w-full overflow-hidden bg-black">
               {showVideo && trailerKey ? (
@@ -142,7 +143,7 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
                   <button
                     onClick={(e) => {
                       e.preventDefault();
-                      setMuted((m) => !m);
+                      toggleMuted();
                     }}
                     aria-label={muted ? "Unmute preview" : "Mute preview"}
                     className="absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-white/60 bg-black/60 text-white transition hover:border-white"

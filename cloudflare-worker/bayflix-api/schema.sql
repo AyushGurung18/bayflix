@@ -1,12 +1,28 @@
--- D1 schema for Bayflix's watchlist/watched history.
+-- D1 schema for Bayflix's profiles, watchlist, and watched history.
 -- Vectorize is the "catalog" (one vector + metadata per title, keyed
--- "<mediaType>:<tmdbId>") — these tables only track the per-user relation,
--- with enough denormalized fields (title/overview/poster) to re-embed a
--- title on the fly if it isn't in the vector index yet.
+-- "<mediaType>:<tmdbId>") — these tables only track the per-profile
+-- relation, with enough denormalized fields (title/overview/poster) to
+-- re-embed a title on the fly if it isn't in the vector index yet.
+
+-- One Firebase account can have multiple profiles (Netflix-style) — each
+-- profile has its own watchlist/watched/ratings and therefore its own
+-- recommendation taste vector. user_id is kept on every row for ownership
+-- checks and cascade deletes; profile_id is what data is actually scoped by.
+CREATE TABLE IF NOT EXISTS profiles (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  avatar_color TEXT NOT NULL DEFAULT '#e50914',
+  avatar_emoji TEXT NOT NULL DEFAULT '🎬',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_user ON profiles (user_id, created_at);
 
 CREATE TABLE IF NOT EXISTS watchlist (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL,
+  profile_id TEXT NOT NULL,
   tmdb_id INTEGER NOT NULL,
   media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
   title TEXT NOT NULL,
@@ -16,12 +32,13 @@ CREATE TABLE IF NOT EXISTS watchlist (
   release_date TEXT,
   vote_average REAL,
   added_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE (user_id, tmdb_id, media_type)
+  UNIQUE (profile_id, tmdb_id, media_type)
 );
 
 CREATE TABLE IF NOT EXISTS watched (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL,
+  profile_id TEXT NOT NULL,
   tmdb_id INTEGER NOT NULL,
   media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
   title TEXT NOT NULL,
@@ -31,16 +48,17 @@ CREATE TABLE IF NOT EXISTS watched (
   release_date TEXT,
   vote_average REAL,
   watched_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE (user_id, tmdb_id, media_type)
+  UNIQUE (profile_id, tmdb_id, media_type)
 );
 
-CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist (user_id, added_at DESC);
-CREATE INDEX IF NOT EXISTS idx_watched_user ON watched (user_id, watched_at DESC);
+CREATE INDEX IF NOT EXISTS idx_watchlist_profile ON watchlist (profile_id, added_at DESC);
+CREATE INDEX IF NOT EXISTS idx_watched_profile ON watched (profile_id, watched_at DESC);
 
 -- Shared cache of OMDb (IMDb/Rotten Tomatoes/Metacritic) ratings, one row
--- per title, refreshed on a TTL (see src/omdb.js) — this is what keeps OMDb
+-- per title, refreshed on a TTL (see src/omdb.ts) — this is what keeps OMDb
 -- calls to roughly one per title ever instead of one per page view, so the
--- free-tier 1,000/day quota can't be exhausted by traffic or abuse.
+-- free-tier 1,000/day quota can't be exhausted by traffic or abuse. Crowd
+-- data, not user data, so it's shared across every profile/account.
 CREATE TABLE IF NOT EXISTS ratings_cache (
   tmdb_id INTEGER NOT NULL,
   media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
@@ -54,12 +72,13 @@ CREATE TABLE IF NOT EXISTS ratings_cache (
   PRIMARY KEY (tmdb_id, media_type)
 );
 
--- Private per-user 1-5 star ratings — same denormalized shape as
+-- Private per-profile 1-5 star ratings — same denormalized shape as
 -- watchlist/watched so a rated title can be embedded into Vectorize even if
 -- it was never explicitly marked watched.
 CREATE TABLE IF NOT EXISTS user_ratings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL,
+  profile_id TEXT NOT NULL,
   tmdb_id INTEGER NOT NULL,
   media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
   title TEXT NOT NULL,
@@ -70,7 +89,7 @@ CREATE TABLE IF NOT EXISTS user_ratings (
   vote_average REAL,
   stars INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
   rated_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE (user_id, tmdb_id, media_type)
+  UNIQUE (profile_id, tmdb_id, media_type)
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_ratings_user ON user_ratings (user_id, rated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_ratings_profile ON user_ratings (profile_id, rated_at DESC);

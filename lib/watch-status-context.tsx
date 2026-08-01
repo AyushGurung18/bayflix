@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "./auth-context";
+import { useProfiles } from "./profile-context";
 import {
   isBayflixApiConfigured,
   getWatchlist,
@@ -45,27 +46,35 @@ const relationKey = (mediaType: MediaType, id: number) => `${mediaType}:${id}`;
 
 export function WatchStatusProvider({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
+  const { activeProfile } = useProfiles();
   const configured = isBayflixApiConfigured();
   const [watchlist, setWatchlist] = useState<RelationItem[]>([]);
   const [watched, setWatched] = useState<RelationItem[]>([]);
   const [ratings, setRatings] = useState<RelationItem[]>([]);
 
+  const profileId = activeProfile?.id;
+
   const refresh = useCallback(async () => {
-    if (!configured || !currentUser) {
+    if (!configured || !currentUser || !profileId) {
       setWatchlist([]);
       setWatched([]);
       setRatings([]);
       return;
     }
-    const [wl, w, r] = await Promise.all([getWatchlist(), getWatched(), getMyRatings()]);
+    const [wl, w, r] = await Promise.all([
+      getWatchlist(profileId),
+      getWatched(profileId),
+      getMyRatings(profileId),
+    ]);
     setWatchlist(wl as RelationItem[]);
     setWatched(w as RelationItem[]);
     setRatings(r as RelationItem[]);
-  }, [configured, currentUser]);
+  }, [configured, currentUser, profileId]);
 
   useEffect(() => {
-    // refresh() clears the lists synchronously when signed out — that's a
-    // deliberate response to the auth dependency changing, not avoidable.
+    // refresh() clears the lists synchronously when signed out or switched
+    // to a different profile — a deliberate response to those dependencies
+    // changing, not avoidable.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
@@ -85,41 +94,47 @@ export function WatchStatusProvider({ children }: { children: ReactNode }) {
 
   const toggleWatchlist = useCallback(
     async (item: TmdbItem, mediaType: MediaType) => {
+      if (!profileId) return;
       const k = relationKey(mediaType, item.id);
       if (watchlistIds.has(k)) {
         setWatchlist((list) => list.filter((i) => relationKey(i.media_type, i.id) !== k));
-        await removeFromWatchlist(item.id, mediaType);
+        await removeFromWatchlist(item.id, mediaType, profileId);
       } else {
         setWatchlist((list) => [{ ...item, media_type: mediaType }, ...list]);
-        await addToWatchlist(item, mediaType);
+        await addToWatchlist(item, mediaType, profileId);
       }
     },
-    [watchlistIds]
+    [watchlistIds, profileId]
   );
 
   const markWatched = useCallback(
     async (item: TmdbItem, mediaType: MediaType) => {
+      if (!profileId) return;
       const k = relationKey(mediaType, item.id);
       if (watchedIds.has(k)) return;
       setWatched((list) => [{ ...item, media_type: mediaType }, ...list]);
-      await addToWatched(item, mediaType);
+      await addToWatched(item, mediaType, profileId);
     },
-    [watchedIds]
+    [watchedIds, profileId]
   );
 
-  const rateTitle = useCallback(async (item: TmdbItem, mediaType: MediaType, stars: number) => {
-    const k = relationKey(mediaType, item.id);
-    if (stars === 0) {
-      setRatings((list) => list.filter((i) => relationKey(i.media_type, i.id) !== k));
-      await removeRating(item.id, mediaType);
-      return;
-    }
-    setRatings((list) => [
-      { ...item, media_type: mediaType, stars },
-      ...list.filter((i) => relationKey(i.media_type, i.id) !== k),
-    ]);
-    await rateTitleApi(item, mediaType, stars);
-  }, []);
+  const rateTitle = useCallback(
+    async (item: TmdbItem, mediaType: MediaType, stars: number) => {
+      if (!profileId) return;
+      const k = relationKey(mediaType, item.id);
+      if (stars === 0) {
+        setRatings((list) => list.filter((i) => relationKey(i.media_type, i.id) !== k));
+        await removeRating(item.id, mediaType, profileId);
+        return;
+      }
+      setRatings((list) => [
+        { ...item, media_type: mediaType, stars },
+        ...list.filter((i) => relationKey(i.media_type, i.id) !== k),
+      ]);
+      await rateTitleApi(item, mediaType, stars, profileId);
+    },
+    [profileId]
+  );
 
   const value: WatchStatusValue = {
     configured,

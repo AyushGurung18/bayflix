@@ -39,6 +39,29 @@ export interface TmdbCastMember {
   profile_path?: string | null;
 }
 
+/** A profile under one Firebase account (Netflix-style "who's watching") —
+ * each has its own watchlist/watched/ratings and recommendation taste. */
+export interface Profile {
+  id: string;
+  name: string;
+  avatar_color: string;
+  avatar_emoji: string;
+}
+
+export interface WatchProviderEntry {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string;
+  display_priority?: number;
+}
+
+export interface WatchProviderCountry {
+  link?: string;
+  flatrate?: WatchProviderEntry[];
+  rent?: WatchProviderEntry[];
+  buy?: WatchProviderEntry[];
+}
+
 export interface TmdbDetails extends TmdbItem {
   runtime?: number;
   budget?: number;
@@ -53,6 +76,7 @@ export interface TmdbDetails extends TmdbItem {
   videos?: { results: TmdbVideo[] };
   credits?: { cast: TmdbCastMember[] };
   recommendations?: { results: TmdbItem[] };
+  "watch/providers"?: { results: Record<string, WatchProviderCountry> };
   success?: boolean;
 }
 

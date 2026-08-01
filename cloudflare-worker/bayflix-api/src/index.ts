@@ -6,7 +6,7 @@ import type { Env, IndexableItem, MediaType } from "./env";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Profile-Id",
 };
 
 function json(data: unknown, status = 200): Response {
@@ -28,6 +28,39 @@ async function requireUser(request: Request, env: Env): Promise<string> {
   } catch (err) {
     throw new AuthError((err as Error).message);
   }
+}
+
+// Every account gets an implicit default profile whose id is its own uid —
+// old (pre-multi-profile) rows already carry that id via the migration, and
+// a brand new account never has to explicitly create one to start using
+// watchlist/watched before ever touching /profiles.
+async function ensureDefaultProfile(env: Env, uid: string): Promise<void> {
+  const existing = await env.DB.prepare("SELECT id FROM profiles WHERE user_id = ? LIMIT 1")
+    .bind(uid)
+    .first();
+  if (existing) return;
+  await env.DB.prepare(
+    "INSERT INTO profiles (id, user_id, name, avatar_color, avatar_emoji) VALUES (?, ?, ?, ?, ?)"
+  )
+    .bind(uid, uid, "Profile 1", "#e50914", "🎬")
+    .run();
+}
+
+// Resolves which profile a request is acting as. X-Profile-Id lets the
+// frontend scope watchlist/watched/ratings/recommendations to whichever
+// profile is active; omitting it (or passing the account's own uid) falls
+// back to the default profile so older clients keep working unmodified.
+async function requireProfile(request: Request, env: Env, uid: string): Promise<string> {
+  const header = request.headers.get("X-Profile-Id");
+  if (!header || header === uid) {
+    await ensureDefaultProfile(env, uid);
+    return uid;
+  }
+  const owned = await env.DB.prepare("SELECT 1 FROM profiles WHERE id = ? AND user_id = ?")
+    .bind(header, uid)
+    .first();
+  if (!owned) throw new AuthError("Profile not found");
+  return header;
 }
 
 async function readBody(request: Request): Promise<Record<string, unknown>> {
@@ -53,15 +86,22 @@ function normalizeItem(body: Record<string, unknown>): IndexableItem {
 
 type RelationTable = "watchlist" | "watched";
 
-async function upsertRelation(env: Env, table: RelationTable, uid: string, item: IndexableItem) {
+async function upsertRelation(
+  env: Env,
+  table: RelationTable,
+  uid: string,
+  profileId: string,
+  item: IndexableItem
+) {
   await env.DB.prepare(
     `INSERT INTO ${table}
-       (user_id, tmdb_id, media_type, title, overview, poster_path, backdrop_path, release_date, vote_average)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (user_id, tmdb_id, media_type) DO UPDATE SET title = excluded.title`
+       (user_id, profile_id, tmdb_id, media_type, title, overview, poster_path, backdrop_path, release_date, vote_average)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (profile_id, tmdb_id, media_type) DO UPDATE SET title = excluded.title`
   )
     .bind(
       uid,
+      profileId,
       item.tmdbId,
       item.mediaType,
       item.title,
@@ -82,12 +122,12 @@ async function upsertRelation(env: Env, table: RelationTable, uid: string, item:
 async function deleteRelation(
   env: Env,
   table: RelationTable,
-  uid: string,
+  profileId: string,
   tmdbId: number,
   mediaType: MediaType
 ) {
-  await env.DB.prepare(`DELETE FROM ${table} WHERE user_id = ? AND tmdb_id = ? AND media_type = ?`)
-    .bind(uid, tmdbId, mediaType)
+  await env.DB.prepare(`DELETE FROM ${table} WHERE profile_id = ? AND tmdb_id = ? AND media_type = ?`)
+    .bind(profileId, tmdbId, mediaType)
     .run();
 }
 
@@ -119,27 +159,28 @@ function rowToCardItem(row: RelationRow) {
   };
 }
 
-async function listRelation(env: Env, table: RelationTable, uid: string) {
+async function listRelation(env: Env, table: RelationTable, profileId: string) {
   const orderCol = table === "watched" ? "watched_at" : "added_at";
   const { results } = await env.DB.prepare(
     `SELECT tmdb_id, media_type, title, overview, poster_path, backdrop_path, release_date, vote_average, ${orderCol} AS at
-     FROM ${table} WHERE user_id = ? ORDER BY ${orderCol} DESC`
+     FROM ${table} WHERE profile_id = ? ORDER BY ${orderCol} DESC`
   )
-    .bind(uid)
+    .bind(profileId)
     .all<RelationRow>();
   return results.map(rowToCardItem);
 }
 
 async function handleRelationRoute(request: Request, env: Env, table: RelationTable): Promise<Response> {
   const uid = await requireUser(request, env);
+  const profileId = await requireProfile(request, env, uid);
 
   if (request.method === "GET") {
-    return json({ results: await listRelation(env, table, uid) });
+    return json({ results: await listRelation(env, table, profileId) });
   }
   if (request.method === "POST") {
     const item = normalizeItem(await readBody(request));
     if (!item.tmdbId || !item.title) return json({ error: "tmdbId and title are required" }, 400);
-    await upsertRelation(env, table, uid, item);
+    await upsertRelation(env, table, uid, profileId, item);
     return json({ ok: true });
   }
   if (request.method === "DELETE") {
@@ -148,7 +189,7 @@ async function handleRelationRoute(request: Request, env: Env, table: RelationTa
     const tmdbId = Number(url.searchParams.get("tmdbId") ?? body.tmdbId);
     const mediaType: MediaType = (url.searchParams.get("mediaType") ?? body.mediaType) === "tv" ? "tv" : "movie";
     if (!tmdbId) return json({ error: "tmdbId is required" }, 400);
-    await deleteRelation(env, table, uid, tmdbId, mediaType);
+    await deleteRelation(env, table, profileId, tmdbId, mediaType);
     return json({ ok: true });
   }
   return json({ error: "Method not allowed" }, 405);
@@ -179,13 +220,14 @@ interface RatingRow extends RelationRow {
 
 async function handleMyRatings(request: Request, env: Env): Promise<Response> {
   const uid = await requireUser(request, env);
+  const profileId = await requireProfile(request, env, uid);
 
   if (request.method === "GET") {
     const { results } = await env.DB.prepare(
       `SELECT tmdb_id, media_type, title, overview, poster_path, backdrop_path, release_date, vote_average, stars, rated_at
-       FROM user_ratings WHERE user_id = ? ORDER BY rated_at DESC`
+       FROM user_ratings WHERE profile_id = ? ORDER BY rated_at DESC`
     )
-      .bind(uid)
+      .bind(profileId)
       .all<RatingRow>();
     return json({
       results: results.map((row) => ({
@@ -207,13 +249,14 @@ async function handleMyRatings(request: Request, env: Env): Promise<Response> {
 
     await env.DB.prepare(
       `INSERT INTO user_ratings
-         (user_id, tmdb_id, media_type, title, overview, poster_path, backdrop_path, release_date, vote_average, stars)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT (user_id, tmdb_id, media_type)
+         (user_id, profile_id, tmdb_id, media_type, title, overview, poster_path, backdrop_path, release_date, vote_average, stars)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (profile_id, tmdb_id, media_type)
        DO UPDATE SET stars = excluded.stars, rated_at = datetime('now')`
     )
       .bind(
         uid,
+        profileId,
         item.tmdbId,
         item.mediaType,
         item.title,
@@ -239,9 +282,76 @@ async function handleMyRatings(request: Request, env: Env): Promise<Response> {
     const tmdbId = Number(url.searchParams.get("tmdbId") ?? body.tmdbId);
     const mediaType: MediaType = (url.searchParams.get("mediaType") ?? body.mediaType) === "tv" ? "tv" : "movie";
     if (!tmdbId) return json({ error: "tmdbId is required" }, 400);
-    await env.DB.prepare("DELETE FROM user_ratings WHERE user_id = ? AND tmdb_id = ? AND media_type = ?")
-      .bind(uid, tmdbId, mediaType)
+    await env.DB.prepare("DELETE FROM user_ratings WHERE profile_id = ? AND tmdb_id = ? AND media_type = ?")
+      .bind(profileId, tmdbId, mediaType)
       .run();
+    return json({ ok: true });
+  }
+
+  return json({ error: "Method not allowed" }, 405);
+}
+
+interface ProfileRow {
+  id: string;
+  name: string;
+  avatar_color: string;
+  avatar_emoji: string;
+}
+
+const MAX_PROFILES = 5;
+
+async function handleProfiles(request: Request, env: Env): Promise<Response> {
+  const uid = await requireUser(request, env);
+
+  if (request.method === "GET") {
+    await ensureDefaultProfile(env, uid);
+    const { results } = await env.DB.prepare(
+      "SELECT id, name, avatar_color, avatar_emoji FROM profiles WHERE user_id = ? ORDER BY created_at ASC"
+    )
+      .bind(uid)
+      .all<ProfileRow>();
+    return json({ results });
+  }
+
+  if (request.method === "POST") {
+    const body = await readBody(request);
+    const name = String(body.name || "").trim().slice(0, 40);
+    if (!name) return json({ error: "name is required" }, 400);
+
+    const { c } = (await env.DB.prepare("SELECT COUNT(*) AS c FROM profiles WHERE user_id = ?")
+      .bind(uid)
+      .first<{ c: number }>()) ?? { c: 0 };
+    if (c >= MAX_PROFILES) return json({ error: `Maximum of ${MAX_PROFILES} profiles` }, 400);
+
+    const id = crypto.randomUUID();
+    const avatarColor = typeof body.avatarColor === "string" ? body.avatarColor.slice(0, 16) : "#e50914";
+    const avatarEmoji = typeof body.avatarEmoji === "string" ? body.avatarEmoji.slice(0, 8) : "🎬";
+
+    await env.DB.prepare(
+      "INSERT INTO profiles (id, user_id, name, avatar_color, avatar_emoji) VALUES (?, ?, ?, ?, ?)"
+    )
+      .bind(id, uid, name, avatarColor, avatarEmoji)
+      .run();
+
+    return json({ id, name, avatar_color: avatarColor, avatar_emoji: avatarEmoji });
+  }
+
+  if (request.method === "DELETE") {
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
+    if (!id) return json({ error: "id is required" }, 400);
+
+    const { c } = (await env.DB.prepare("SELECT COUNT(*) AS c FROM profiles WHERE user_id = ?")
+      .bind(uid)
+      .first<{ c: number }>()) ?? { c: 0 };
+    if (c <= 1) return json({ error: "Can't delete your only profile" }, 400);
+
+    await env.DB.prepare("DELETE FROM profiles WHERE id = ? AND user_id = ?").bind(id, uid).run();
+    await Promise.all(
+      (["watchlist", "watched", "user_ratings"] as const).map((table) =>
+        env.DB.prepare(`DELETE FROM ${table} WHERE profile_id = ? AND user_id = ?`).bind(id, uid).run()
+      )
+    );
     return json({ ok: true });
   }
 
@@ -260,17 +370,18 @@ async function handleSearch(request: Request, env: Env): Promise<Response> {
 
 async function handleRecommendations(request: Request, env: Env): Promise<Response> {
   const uid = await requireUser(request, env);
+  const profileId = await requireProfile(request, env, uid);
 
   const [{ results: watched }, { results: ratings }] = await Promise.all([
     env.DB.prepare(
-      "SELECT tmdb_id, media_type, title, overview FROM watched WHERE user_id = ? ORDER BY watched_at DESC LIMIT 15"
+      "SELECT tmdb_id, media_type, title, overview FROM watched WHERE profile_id = ? ORDER BY watched_at DESC LIMIT 15"
     )
-      .bind(uid)
+      .bind(profileId)
       .all<TasteRow>(),
     env.DB.prepare(
-      "SELECT tmdb_id, media_type, title, overview, stars FROM user_ratings WHERE user_id = ?"
+      "SELECT tmdb_id, media_type, title, overview, stars FROM user_ratings WHERE profile_id = ?"
     )
-      .bind(uid)
+      .bind(profileId)
       .all<TasteRow>(),
   ]);
 
@@ -280,9 +391,9 @@ async function handleRecommendations(request: Request, env: Env): Promise<Respon
   if (!taste) return json({ results: [] });
 
   const { results: watchlist } = await env.DB.prepare(
-    "SELECT tmdb_id, media_type FROM watchlist WHERE user_id = ?"
+    "SELECT tmdb_id, media_type FROM watchlist WHERE profile_id = ?"
   )
-    .bind(uid)
+    .bind(profileId)
     .all<{ tmdb_id: number; media_type: MediaType }>();
 
   const seen = new Set([
@@ -332,6 +443,7 @@ const worker = {
 
     try {
       if (url.pathname === "/health") return json({ ok: true });
+      if (url.pathname === "/profiles") return await handleProfiles(request, env);
       if (url.pathname === "/watchlist") return await handleRelationRoute(request, env, "watchlist");
       if (url.pathname === "/watched") return await handleRelationRoute(request, env, "watched");
       if (url.pathname === "/ratings" && request.method === "GET")

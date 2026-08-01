@@ -1,19 +1,35 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Play, Clapperboard, Volume2, VolumeX, User } from "lucide-react";
+import {
+  Play,
+  Clapperboard,
+  Volume2,
+  VolumeX,
+  User,
+  Calendar,
+  Clock,
+  DollarSign,
+  TrendingUp,
+  Globe,
+  BadgeCheck,
+  Layers,
+  Tv,
+} from "lucide-react";
 import { SkeletonDetail } from "./Skeletons";
 import MovieRow from "./MovieRow";
 import TrailerModal from "./TrailerModal";
 import CircularRatings from "./CircularRatings";
+import WatchProviders from "./WatchProviders";
 import WatchlistButton from "./WatchlistButton";
 import StarRating from "./StarRating";
 import { useTrailer } from "@/lib/use-trailer";
 import { backdropUrl, posterUrl, pickTrailer, fetchMovieDetails, fetchTVDetails } from "@/lib/tmdb";
 import { getRatings } from "@/lib/bayflix-api";
 import { BLUR_DATA_URL } from "@/lib/image-utils";
+import { usePersistentMute } from "@/lib/use-persistent-mute";
 import type { MediaType, RatingsResult, TmdbDetails } from "@/lib/types";
 
 const HERO_TRAILER_DELAY = 3000;
@@ -40,7 +56,7 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   const [notFound, setNotFound] = useState(false);
   const [ratings, setRatings] = useState<RatingsResult | null>(null);
   const [showHeroVideo, setShowHeroVideo] = useState(false);
-  const [heroMuted, setHeroMuted] = useState(true);
+  const [heroMuted, toggleHeroMuted] = usePersistentMute();
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
 
   useEffect(() => {
@@ -133,7 +149,7 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
         <div className="absolute inset-0 bg-gradient-to-r from-ink/90 via-transparent to-transparent" />
         {showHeroVideo && trailerInfo && (
           <button
-            onClick={() => setHeroMuted((m) => !m)}
+            onClick={toggleHeroMuted}
             aria-label={heroMuted ? "Unmute trailer" : "Mute trailer"}
             className="absolute bottom-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/50 text-white transition hover:border-white sm:right-10"
           >
@@ -214,23 +230,25 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
           </div>
 
           {!isTV && (
-            <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:max-w-md">
-              <DetailRow label="Release Date" value={date || "—"} />
-              <DetailRow label="Runtime" value={formatRuntime(data.runtime) || "—"} />
-              <DetailRow label="Budget" value={formatMoney(data.budget)} />
-              <DetailRow label="Revenue" value={formatMoney(data.revenue)} />
-              <DetailRow label="Language" value={data.spoken_languages?.[0]?.name || "—"} />
-              <DetailRow label="Status" value={data.status || "—"} />
-            </dl>
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:max-w-2xl sm:grid-cols-3">
+              <StatCard icon={Calendar} label="Release Date" value={date || "—"} />
+              <StatCard icon={Clock} label="Runtime" value={formatRuntime(data.runtime) || "—"} />
+              <StatCard icon={DollarSign} label="Budget" value={formatMoney(data.budget)} />
+              <StatCard icon={TrendingUp} label="Revenue" value={formatMoney(data.revenue)} />
+              <StatCard icon={Globe} label="Language" value={data.spoken_languages?.[0]?.name || "—"} />
+              <StatCard icon={BadgeCheck} label="Status" value={data.status || "—"} />
+            </div>
           )}
           {isTV && (
-            <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:max-w-md">
-              <DetailRow label="First Air Date" value={date || "—"} />
-              <DetailRow label="Seasons" value={data.number_of_seasons ?? "—"} />
-              <DetailRow label="Episodes" value={data.number_of_episodes ?? "—"} />
-              <DetailRow label="Status" value={data.status || "—"} />
-            </dl>
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:max-w-2xl sm:grid-cols-3">
+              <StatCard icon={Calendar} label="First Air Date" value={date || "—"} />
+              <StatCard icon={Layers} label="Seasons" value={data.number_of_seasons ?? "—"} />
+              <StatCard icon={Tv} label="Episodes" value={data.number_of_episodes ?? "—"} />
+              <StatCard icon={BadgeCheck} label="Status" value={data.status || "—"} />
+            </div>
           )}
+
+          <WatchProviders results={data["watch/providers"]?.results} />
         </div>
       </div>
 
@@ -286,11 +304,24 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: ReactNode }) {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: ComponentType<{ size?: number }>;
+  label: string;
+  value: ReactNode;
+}) {
   return (
-    <>
-      <dt className="text-neutral-500">{label}</dt>
-      <dd className="text-neutral-200">{value}</dd>
-    </>
+    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 transition hover:border-white/20 hover:bg-white/[0.06]">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5 text-brand">
+        <Icon size={18} />
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{label}</p>
+        <p className="truncate text-sm font-semibold text-white">{value}</p>
+      </div>
+    </div>
   );
 }

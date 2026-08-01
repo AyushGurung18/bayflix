@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, ChevronDown } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/lib/auth-context";
+import { useProfiles } from "@/lib/profile-context";
 import { isBayflixApiConfigured } from "@/lib/bayflix-api";
 import SearchOverlay from "./SearchOverlay";
 
@@ -27,6 +28,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { currentUser, logOut } = useAuth();
+  const { activeProfile } = useProfiles();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -114,9 +116,12 @@ export default function Navbar() {
               <motion.span
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.94 }}
-                className="relative h-8 w-8 overflow-hidden rounded bg-brand"
+                className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded text-base"
+                style={{ backgroundColor: activeProfile?.avatar_color || "var(--color-brand)" }}
               >
-                {currentUser?.photoURL ? (
+                {activeProfile ? (
+                  activeProfile.avatar_emoji
+                ) : currentUser?.photoURL ? (
                   <Image src={currentUser.photoURL} alt="" fill className="object-cover" />
                 ) : (
                   <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-white">
@@ -139,12 +144,21 @@ export default function Navbar() {
                   transition={{ duration: 0.15 }}
                   className="absolute right-0 top-full mt-3 w-48 rounded-sm border border-neutral-700 bg-ink-raised/95 py-2 text-sm shadow-xl"
                 >
+                  {activeProfile && (
+                    <Link
+                      href="/profiles"
+                      className="block px-4 py-2 text-neutral-200 transition hover:bg-white/5"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Switch Profiles
+                    </Link>
+                  )}
                   <Link
                     href="/profile"
                     className="block px-4 py-2 text-neutral-200 transition hover:bg-white/5"
                     onClick={() => setMenuOpen(false)}
                   >
-                    Profile
+                    Account Settings
                   </Link>
                   <button
                     onClick={handleLogout}

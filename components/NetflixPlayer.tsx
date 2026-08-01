@@ -447,7 +447,7 @@ export default function NetflixPlayer({
     >
       <video
         ref={videoRef}
-        className="h-full w-full object-contain"
+        className="h-full w-full object-cover"
         onClick={togglePlayPause}
         onDoubleClick={toggleFullscreen}
         controls={false}

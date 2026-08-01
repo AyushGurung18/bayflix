@@ -60,13 +60,15 @@ export function fetchTVVideos(id: number | string) {
 }
 
 export function fetchMovieDetails(id: number | string) {
-  return fetchTmdb<TmdbDetails>(`movie/${id}`, { append_to_response: "videos,credits,recommendations" });
+  return fetchTmdb<TmdbDetails>(`movie/${id}`, {
+    append_to_response: "videos,credits,recommendations,watch/providers",
+  });
 }
 export function fetchTVDetails(id: number | string) {
   // TV objects don't carry a top-level imdb_id like movies do — external_ids
   // is the only way to get one, needed for the OMDb ratings lookup.
   return fetchTmdb<TmdbDetails>(`tv/${id}`, {
-    append_to_response: "videos,credits,recommendations,external_ids",
+    append_to_response: "videos,credits,recommendations,external_ids,watch/providers",
   });
 }
 

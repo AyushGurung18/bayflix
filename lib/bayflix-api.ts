@@ -1,7 +1,7 @@
 "use client";
 
 import { auth } from "./firebase";
-import type { MediaType, RatingsResult, TmdbItem } from "./types";
+import type { MediaType, Profile, RatingsResult, TmdbItem } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BAYFLIX_API_BASE_URL;
 
@@ -20,11 +20,12 @@ interface CallOptions {
   method?: string;
   body?: unknown;
   auth?: boolean;
+  profileId?: string;
 }
 
 async function call<T = unknown>(path: string, options: CallOptions = {}): Promise<T | null> {
   if (!BASE_URL) return null;
-  const { method = "GET", body, auth: needsAuth = false } = options;
+  const { method = "GET", body, auth: needsAuth = false, profileId } = options;
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (needsAuth) {
@@ -32,6 +33,7 @@ async function call<T = unknown>(path: string, options: CallOptions = {}): Promi
     if (!h) return null; // not signed in yet — treat as "no data" rather than erroring
     Object.assign(headers, h);
   }
+  if (profileId) headers["X-Profile-Id"] = profileId;
 
   try {
     const res = await fetch(`${BASE_URL}${path}`, {
@@ -64,26 +66,26 @@ interface RelationResponse {
   results: TmdbItem[];
 }
 
-export async function getWatchlist() {
-  const data = await call<RelationResponse>("/watchlist", { auth: true });
+export async function getWatchlist(profileId?: string) {
+  const data = await call<RelationResponse>("/watchlist", { auth: true, profileId });
   return data?.results ?? [];
 }
-export async function addToWatchlist(item: TmdbItem, mediaType: MediaType) {
-  return call("/watchlist", { method: "POST", auth: true, body: toRelationPayload(item, mediaType) });
+export async function addToWatchlist(item: TmdbItem, mediaType: MediaType, profileId?: string) {
+  return call("/watchlist", { method: "POST", auth: true, profileId, body: toRelationPayload(item, mediaType) });
 }
-export async function removeFromWatchlist(tmdbId: number, mediaType: MediaType) {
-  return call(`/watchlist?tmdbId=${tmdbId}&mediaType=${mediaType}`, { method: "DELETE", auth: true });
+export async function removeFromWatchlist(tmdbId: number, mediaType: MediaType, profileId?: string) {
+  return call(`/watchlist?tmdbId=${tmdbId}&mediaType=${mediaType}`, { method: "DELETE", auth: true, profileId });
 }
 
-export async function getWatched() {
-  const data = await call<RelationResponse>("/watched", { auth: true });
+export async function getWatched(profileId?: string) {
+  const data = await call<RelationResponse>("/watched", { auth: true, profileId });
   return data?.results ?? [];
 }
-export async function addToWatched(item: TmdbItem, mediaType: MediaType) {
-  return call("/watched", { method: "POST", auth: true, body: toRelationPayload(item, mediaType) });
+export async function addToWatched(item: TmdbItem, mediaType: MediaType, profileId?: string) {
+  return call("/watched", { method: "POST", auth: true, profileId, body: toRelationPayload(item, mediaType) });
 }
-export async function removeFromWatched(tmdbId: number, mediaType: MediaType) {
-  return call(`/watched?tmdbId=${tmdbId}&mediaType=${mediaType}`, { method: "DELETE", auth: true });
+export async function removeFromWatched(tmdbId: number, mediaType: MediaType, profileId?: string) {
+  return call(`/watched?tmdbId=${tmdbId}&mediaType=${mediaType}`, { method: "DELETE", auth: true, profileId });
 }
 
 export async function semanticSearch(query: string) {
@@ -92,8 +94,8 @@ export async function semanticSearch(query: string) {
   return data?.results ?? [];
 }
 
-export async function getRecommendations() {
-  const data = await call<RelationResponse>("/recommendations", { auth: true });
+export async function getRecommendations(profileId?: string) {
+  const data = await call<RelationResponse>("/recommendations", { auth: true, profileId });
   return data?.results ?? [];
 }
 
@@ -116,17 +118,37 @@ export async function getRatings({ tmdbId, mediaType, imdbId, title, year }: Get
   return call<RatingsResult>(`/ratings?${params.toString()}`);
 }
 
-export async function getMyRatings() {
-  const data = await call<RelationResponse>("/ratings/mine", { auth: true });
+export async function getMyRatings(profileId?: string) {
+  const data = await call<RelationResponse>("/ratings/mine", { auth: true, profileId });
   return data?.results ?? [];
 }
-export async function rateTitle(item: TmdbItem, mediaType: MediaType, stars: number) {
+export async function rateTitle(item: TmdbItem, mediaType: MediaType, stars: number, profileId?: string) {
   return call("/ratings/mine", {
     method: "POST",
     auth: true,
+    profileId,
     body: { ...toRelationPayload(item, mediaType), stars },
   });
 }
-export async function removeRating(tmdbId: number, mediaType: MediaType) {
-  return call(`/ratings/mine?tmdbId=${tmdbId}&mediaType=${mediaType}`, { method: "DELETE", auth: true });
+export async function removeRating(tmdbId: number, mediaType: MediaType, profileId?: string) {
+  return call(`/ratings/mine?tmdbId=${tmdbId}&mediaType=${mediaType}`, { method: "DELETE", auth: true, profileId });
+}
+
+interface ProfilesResponse {
+  results: Profile[];
+}
+
+export async function getProfiles() {
+  const data = await call<ProfilesResponse>("/profiles", { auth: true });
+  return data?.results ?? [];
+}
+export async function createProfile(name: string, avatarColor: string, avatarEmoji: string) {
+  return call<Profile>("/profiles", {
+    method: "POST",
+    auth: true,
+    body: { name, avatarColor, avatarEmoji },
+  });
+}
+export async function deleteProfile(id: string) {
+  return call(`/profiles?id=${encodeURIComponent(id)}`, { method: "DELETE", auth: true });
 }
