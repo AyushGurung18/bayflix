@@ -91,6 +91,21 @@ export interface TmdbSeasonDetails {
   episodes: TmdbEpisode[];
 }
 
+export interface TmdbReleaseDateEntry {
+  certification: string;
+  type: number;
+}
+
+export interface TmdbReleaseDatesCountry {
+  iso_3166_1: string;
+  release_dates: TmdbReleaseDateEntry[];
+}
+
+export interface TmdbContentRatingsCountry {
+  iso_3166_1: string;
+  rating: string;
+}
+
 export interface WatchProviderEntry {
   provider_id: number;
   provider_name: string;
@@ -122,6 +137,8 @@ export interface TmdbDetails extends TmdbItem {
   "watch/providers"?: { results: Record<string, WatchProviderCountry> };
   reviews?: { results: TmdbReview[] };
   seasons?: TmdbSeason[];
+  release_dates?: { results: TmdbReleaseDatesCountry[] };
+  content_ratings?: { results: TmdbContentRatingsCountry[] };
   success?: boolean;
 }
 

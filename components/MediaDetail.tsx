@@ -18,6 +18,7 @@ import {
   Tv,
   Volume2,
   VolumeX,
+  ShieldAlert,
 } from "lucide-react";
 import { SkeletonDetail } from "./Skeletons";
 import MovieRow from "./MovieRow";
@@ -30,7 +31,14 @@ import YouTubeLivePlayer from "./YouTubeLivePlayer";
 import WatchlistButton from "./WatchlistButton";
 import StarRating from "./StarRating";
 import { useTrailer } from "@/lib/use-trailer";
-import { backdropUrl, posterUrl, pickTrailer, fetchMovieDetails, fetchTVDetails } from "@/lib/tmdb";
+import {
+  backdropUrl,
+  posterUrl,
+  pickTrailer,
+  pickCertification,
+  fetchMovieDetails,
+  fetchTVDetails,
+} from "@/lib/tmdb";
 import { getRatings } from "@/lib/bayflix-api";
 import { BLUR_DATA_URL } from "@/lib/image-utils";
 import { usePersistentMute } from "@/lib/use-persistent-mute";
@@ -121,6 +129,7 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   const title = data.title || data.name || "";
   const date = data.release_date || data.first_air_date;
   const trailerInfo = pickTrailer(data.videos);
+  const certification = pickCertification(data, isTV);
   const cast = (data.credits?.cast ?? []).slice(0, 10);
   const recommendations = (data.recommendations?.results ?? []).filter(
     (r) => r.poster_path || r.backdrop_path
@@ -237,6 +246,7 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
                   <StatCard icon={TrendingUp} label="Revenue" value={formatMoney(data.revenue)} />
                   <StatCard icon={Globe} label="Language" value={data.spoken_languages?.[0]?.name || "—"} />
                   <StatCard icon={BadgeCheck} label="Status" value={data.status || "—"} />
+                  <StatCard icon={ShieldAlert} label="Certification" value={certification || "Not Rated"} />
                 </div>
               )}
               {isTV && (
@@ -245,6 +255,7 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
                   <StatCard icon={Layers} label="Seasons" value={data.number_of_seasons ?? "—"} />
                   <StatCard icon={Tv} label="Episodes" value={data.number_of_episodes ?? "—"} />
                   <StatCard icon={BadgeCheck} label="Status" value={data.status || "—"} />
+                  <StatCard icon={ShieldAlert} label="Certification" value={certification || "Not Rated"} />
                 </div>
               )}
 

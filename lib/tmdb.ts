@@ -69,15 +69,39 @@ export function fetchTVVideos(id: number | string) {
 
 export function fetchMovieDetails(id: number | string) {
   return fetchTmdb<TmdbDetails>(`movie/${id}`, {
-    append_to_response: "videos,credits,recommendations,watch/providers,reviews",
+    append_to_response: "videos,credits,recommendations,watch/providers,reviews,release_dates",
   });
 }
 export function fetchTVDetails(id: number | string) {
   // TV objects don't carry a top-level imdb_id like movies do — external_ids
   // is the only way to get one, needed for the OMDb ratings lookup.
   return fetchTmdb<TmdbDetails>(`tv/${id}`, {
-    append_to_response: "videos,credits,recommendations,external_ids,watch/providers,reviews",
+    append_to_response:
+      "videos,credits,recommendations,external_ids,watch/providers,reviews,content_ratings",
   });
+}
+
+// Age certification (PG-13, R, TV-MA, ...) — prefers the US board since
+// that's what most users recognize, falling back to whichever country TMDB
+// actually has a non-empty rating for. Movies and TV expose this under
+// completely different response shapes (release_dates vs content_ratings),
+// hence the branch.
+export function pickCertification(data: TmdbDetails, isTV: boolean): string | null {
+  if (isTV) {
+    const results = data.content_ratings?.results ?? [];
+    const byRegion = (cc: string) => results.find((r) => r.iso_3166_1 === cc)?.rating;
+    return byRegion("US") || results.find((r) => r.rating)?.rating || null;
+  }
+  const results = data.release_dates?.results ?? [];
+  const certOf = (cc: string) =>
+    results
+      .find((r) => r.iso_3166_1 === cc)
+      ?.release_dates.find((rd) => rd.certification)?.certification;
+  return (
+    certOf("US") ||
+    results.flatMap((r) => r.release_dates).find((rd) => rd.certification)?.certification ||
+    null
+  );
 }
 
 export function fetchSeasonDetails(tvId: number | string, seasonNumber: number) {
