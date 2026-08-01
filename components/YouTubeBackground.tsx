@@ -26,7 +26,14 @@ export default function YouTubeBackground({ videoId, muted }: YouTubeBackgroundP
         muted ? 1 : 0
       }&controls=0&loop=1&playlist=${videoId}&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1&modestbranding=1`}
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      className="yt-cover"
+      // No .yt-cover here deliberately: that class oversizes the iframe using
+      // viewport units (100vw/56.25vw) to make a 16:9 video cover a
+      // *non*-16:9 container like the Hero. This component's only remaining
+      // caller (the card PIP) already renders inside an aspect-video box —
+      // exactly 16:9, the same as the video itself — so blowing it up to
+      // viewport size just zoomed in on a random crop of a much bigger
+      // frame. A plain 100%/100% fill is the correct, non-cropped fit.
+      className="pointer-events-none absolute inset-0 h-full w-full border-0"
     />
   );
 }
