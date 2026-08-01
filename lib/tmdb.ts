@@ -1,6 +1,14 @@
 "use client";
 
-import type { MediaType, TmdbDetails, TmdbItem, TmdbListResponse, TmdbPerson, TmdbVideo } from "./types";
+import type {
+  MediaType,
+  TmdbDetails,
+  TmdbItem,
+  TmdbListResponse,
+  TmdbPerson,
+  TmdbSeasonDetails,
+  TmdbVideo,
+} from "./types";
 
 async function fetchTmdb<T>(path: string, params: Record<string, string | number | boolean> = {}): Promise<T> {
   const query = new URLSearchParams(
@@ -61,15 +69,19 @@ export function fetchTVVideos(id: number | string) {
 
 export function fetchMovieDetails(id: number | string) {
   return fetchTmdb<TmdbDetails>(`movie/${id}`, {
-    append_to_response: "videos,credits,recommendations,watch/providers",
+    append_to_response: "videos,credits,recommendations,watch/providers,reviews",
   });
 }
 export function fetchTVDetails(id: number | string) {
   // TV objects don't carry a top-level imdb_id like movies do — external_ids
   // is the only way to get one, needed for the OMDb ratings lookup.
   return fetchTmdb<TmdbDetails>(`tv/${id}`, {
-    append_to_response: "videos,credits,recommendations,external_ids,watch/providers",
+    append_to_response: "videos,credits,recommendations,external_ids,watch/providers,reviews",
   });
+}
+
+export function fetchSeasonDetails(tvId: number | string, seasonNumber: number) {
+  return fetchTmdb<TmdbSeasonDetails>(`tv/${tvId}/season/${seasonNumber}`);
 }
 
 export function searchMulti(query: string, page = 1) {

@@ -23,6 +23,8 @@ import MovieRow from "./MovieRow";
 import TrailerModal from "./TrailerModal";
 import CircularRatings from "./CircularRatings";
 import WatchProviders from "./WatchProviders";
+import ReviewsSection from "./ReviewsSection";
+import SeasonsEpisodes from "./SeasonsEpisodes";
 import WatchlistButton from "./WatchlistButton";
 import StarRating from "./StarRating";
 import { useTrailer } from "@/lib/use-trailer";
@@ -140,9 +142,9 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
             title={`${title} trailer`}
             src={`https://www.youtube-nocookie.com/embed/${trailerInfo.key}?autoplay=1&mute=${
               heroMuted ? 1 : 0
-            }&controls=0&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1`}
+            }&controls=0&loop=1&playlist=${trailerInfo.key}&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1`}
             allow="autoplay; encrypted-media"
-            className="absolute inset-0 h-full w-full scale-[1.5] border-0 sm:scale-125"
+            className="pointer-events-none absolute inset-0 h-full w-full scale-[1.5] border-0 sm:scale-125"
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-transparent" />
@@ -287,6 +289,10 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
           </div>
         </div>
       )}
+
+      {isTV && <SeasonsEpisodes key={data.id} tvId={data.id} seasons={data.seasons} />}
+
+      <ReviewsSection reviews={data.reviews?.results} />
 
       {recommendations.length > 0 && (
         <div className="mt-6">

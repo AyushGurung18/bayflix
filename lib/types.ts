@@ -48,6 +48,49 @@ export interface Profile {
   avatar_emoji: string;
 }
 
+export interface TmdbReview {
+  id: string;
+  author: string;
+  author_details?: {
+    rating?: number | null;
+    avatar_path?: string | null;
+    username?: string;
+  };
+  content: string;
+  created_at: string;
+  url?: string;
+}
+
+export interface TmdbSeason {
+  id: number;
+  season_number: number;
+  name: string;
+  episode_count: number;
+  poster_path: string | null;
+  air_date: string | null;
+  overview?: string;
+}
+
+export interface TmdbEpisode {
+  id: number;
+  episode_number: number;
+  season_number: number;
+  name: string;
+  overview: string;
+  still_path: string | null;
+  air_date: string | null;
+  vote_average: number;
+  runtime?: number | null;
+}
+
+export interface TmdbSeasonDetails {
+  id: number;
+  season_number: number;
+  name: string;
+  overview?: string;
+  episodes: TmdbEpisode[];
+}
+
 export interface WatchProviderEntry {
   provider_id: number;
   provider_name: string;
@@ -77,6 +120,8 @@ export interface TmdbDetails extends TmdbItem {
   credits?: { cast: TmdbCastMember[] };
   recommendations?: { results: TmdbItem[] };
   "watch/providers"?: { results: Record<string, WatchProviderCountry> };
+  reviews?: { results: TmdbReview[] };
+  seasons?: TmdbSeason[];
   success?: boolean;
 }
 

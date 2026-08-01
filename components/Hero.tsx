@@ -76,9 +76,9 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
             title="Featured trailer"
             src={`https://www.youtube-nocookie.com/embed/${trailer.key}?autoplay=1&mute=${
               muted ? 1 : 0
-            }&controls=0&rel=0&iv_load_policy=3&fs=0&disablekb=1&modestbranding=1&playsinline=1`}
+            }&controls=0&loop=1&playlist=${trailer.key}&rel=0&iv_load_policy=3&fs=0&disablekb=1&modestbranding=1&playsinline=1`}
             allow="autoplay; encrypted-media"
-            className="absolute inset-0 h-full w-full scale-[1.5] border-0 sm:scale-125"
+            className="pointer-events-none absolute inset-0 h-full w-full scale-[1.5] border-0 sm:scale-125"
           />
         )}
       </div>

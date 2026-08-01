@@ -136,7 +136,7 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
                     title={`${title} trailer preview`}
                     src={`https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&mute=${
                       muted ? 1 : 0
-                    }&controls=0&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1`}
+                    }&controls=0&loop=1&playlist=${trailerKey}&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1`}
                     allow="autoplay; encrypted-media"
                     className="pointer-events-none absolute inset-0 h-full w-full border-0"
                   />
