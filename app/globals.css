@@ -135,15 +135,14 @@
     box-shadow: 0 10px 32px -6px rgba(255, 255, 255, 0.5);
   }
 
-  /* Forces a 16:9 YouTube embed to fully cover a container of ANY aspect
-     ratio by oversizing it in whichever dimension is short, instead of
-     YouTube's own player letterboxing/pillarboxing itself to fit — that
-     internal letterboxing is what was showing as black bars on the sides. */
-  .yt-cover-frame {
-    position: relative;
-    overflow: hidden;
-  }
-  .yt-cover-frame iframe {
+  /* Forces a 16:9 YouTube embed to fully cover its containing box regardless
+     of aspect ratio, by oversizing it in whichever dimension is short —
+     instead of YouTube's own player letterboxing/pillarboxing itself to
+     fit (which is what was showing as black bars on the sides). Goes
+     directly on the <iframe>; the nearest positioned ancestor just needs
+     overflow-hidden to clip the oversized edges, which every caller here
+     already has. */
+  .yt-cover {
     position: absolute;
     top: 50%;
     left: 50%;
