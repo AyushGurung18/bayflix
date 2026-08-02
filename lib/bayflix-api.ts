@@ -1,7 +1,7 @@
 "use client";
 
 import { auth } from "./firebase";
-import type { MediaType, Profile, RatingsResult, TmdbItem } from "./types";
+import type { Account, MediaType, Profile, RatingsResult, TmdbItem } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BAYFLIX_API_BASE_URL;
 
@@ -151,4 +151,40 @@ export async function createProfile(name: string, avatarColor: string, avatarEmo
 }
 export async function deleteProfile(id: string) {
   return call(`/profiles?id=${encodeURIComponent(id)}`, { method: "DELETE", auth: true });
+}
+
+export async function getAccount() {
+  return call<Account>("/account", { auth: true });
+}
+export async function updateAccount(data: { dob?: string | null; gender?: string | null }) {
+  return call<Account>("/account", { method: "PUT", auth: true, body: data });
+}
+
+// The uid-keyed public avatar URL — bumped with a cache-busting query param
+// since the underlying R2 object is overwritten in place on re-upload, so
+// the URL itself never changes and would otherwise serve a stale cached copy.
+export function avatarUrl(uid: string, version: number = Date.now()): string | null {
+  return BASE_URL ? `${BASE_URL}/avatar/${uid}?v=${version}` : null;
+}
+
+// Bypasses the generic call() helper, which always JSON-encodes the body —
+// this needs to send raw image bytes with the file's own content-type.
+export async function uploadAvatar(file: File) {
+  if (!BASE_URL) return null;
+  const headers = await authHeaders();
+  if (!headers) return null;
+  headers["Content-Type"] = file.type;
+
+  try {
+    const res = await fetch(`${BASE_URL}/account/avatar`, {
+      method: "POST",
+      headers,
+      body: file,
+    });
+    if (!res.ok) throw new Error(`Bayflix API /account/avatar failed (${res.status})`);
+    return res.json();
+  } catch (err) {
+    console.error("Bayflix API request failed: /account/avatar", err);
+    return null;
+  }
 }

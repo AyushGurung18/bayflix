@@ -168,6 +168,16 @@ export interface TmdbPerson {
   success?: boolean;
 }
 
+export const GENDER_OPTIONS = ["Female", "Male", "Non-binary", "Prefer not to say"] as const;
+
+/** Account-level personal info — one set per Firebase login, not per
+ * Netflix-style sub-profile. Name/email/photo live on the Firebase User
+ * object itself; dob/gender have no Firebase-native home, hence this. */
+export interface Account {
+  dob: string | null;
+  gender: string | null;
+}
+
 /** Result shape of lib/bayflix-api's getRatings() / the worker's GET /ratings. */
 export interface RatingsResult {
   configured?: boolean;

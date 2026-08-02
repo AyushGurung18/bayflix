@@ -1,4 +1,4 @@
-import { verifyFirebaseToken } from "./verifyFirebaseToken";
+import { verifyFirebaseToken, type FirebaseTokenPayload } from "./verifyFirebaseToken";
 import { embedText, indexTitle, matchToCardItem, buildTasteVector, vectorId, type TasteRow } from "./embeddings";
 import { getCachedRatings } from "./omdb";
 import type { Env, IndexableItem, MediaType } from "./env";
@@ -18,31 +18,37 @@ function json(data: unknown, status = 200): Response {
 
 class AuthError extends Error {}
 
-async function requireUser(request: Request, env: Env): Promise<string> {
+async function requireUserPayload(request: Request, env: Env): Promise<FirebaseTokenPayload> {
   const auth = request.headers.get("Authorization") || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
   if (!token) throw new AuthError("Missing Authorization header");
   try {
-    const payload = await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID);
-    return payload.sub;
+    return await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID);
   } catch (err) {
     throw new AuthError((err as Error).message);
   }
 }
 
+async function requireUser(request: Request, env: Env): Promise<string> {
+  return (await requireUserPayload(request, env)).sub;
+}
+
 // Every account gets an implicit default profile whose id is its own uid —
 // old (pre-multi-profile) rows already carry that id via the migration, and
 // a brand new account never has to explicitly create one to start using
-// watchlist/watched before ever touching /profiles.
-async function ensureDefaultProfile(env: Env, uid: string): Promise<void> {
+// watchlist/watched before ever touching /profiles. defaultName comes from
+// the account holder's own Firebase display name (see handleProfiles) so a
+// brand-new account isn't stuck with a generic "Profile 1".
+async function ensureDefaultProfile(env: Env, uid: string, defaultName?: string): Promise<void> {
   const existing = await env.DB.prepare("SELECT id FROM profiles WHERE user_id = ? LIMIT 1")
     .bind(uid)
     .first();
   if (existing) return;
+  const name = (defaultName || "").trim().slice(0, 40) || "My Profile";
   await env.DB.prepare(
     "INSERT INTO profiles (id, user_id, name, avatar_color, avatar_emoji) VALUES (?, ?, ?, ?, ?)"
   )
-    .bind(uid, uid, "Profile 1", "#e50914", "🎬")
+    .bind(uid, uid, name, "#e50914", "🎬")
     .run();
 }
 
@@ -301,10 +307,14 @@ interface ProfileRow {
 const MAX_PROFILES = 5;
 
 async function handleProfiles(request: Request, env: Env): Promise<Response> {
-  const uid = await requireUser(request, env);
-
   if (request.method === "GET") {
-    await ensureDefaultProfile(env, uid);
+    const payload = await requireUserPayload(request, env);
+    const uid = payload.sub;
+    const fallbackName =
+      (typeof payload.name === "string" && payload.name.trim()) ||
+      (typeof payload.email === "string" ? payload.email.split("@")[0] : "") ||
+      "My Profile";
+    await ensureDefaultProfile(env, uid, fallbackName);
     const { results } = await env.DB.prepare(
       "SELECT id, name, avatar_color, avatar_emoji FROM profiles WHERE user_id = ? ORDER BY created_at ASC"
     )
@@ -314,6 +324,7 @@ async function handleProfiles(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST") {
+    const uid = await requireUser(request, env);
     const body = await readBody(request);
     const name = String(body.name || "").trim().slice(0, 40);
     if (!name) return json({ error: "name is required" }, 400);
@@ -337,6 +348,7 @@ async function handleProfiles(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "DELETE") {
+    const uid = await requireUser(request, env);
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
     if (!id) return json({ error: "id is required" }, 400);
@@ -356,6 +368,84 @@ async function handleProfiles(request: Request, env: Env): Promise<Response> {
   }
 
   return json({ error: "Method not allowed" }, 405);
+}
+
+const GENDER_OPTIONS = new Set(["Female", "Male", "Non-binary", "Prefer not to say"]);
+
+// Account-level personal info — dob/gender, one row per Firebase login. Name,
+// email, and photo already live on the Firebase User object itself.
+async function handleAccount(request: Request, env: Env): Promise<Response> {
+  const uid = await requireUser(request, env);
+
+  if (request.method === "GET") {
+    const row = await env.DB.prepare("SELECT dob, gender FROM accounts WHERE user_id = ?")
+      .bind(uid)
+      .first<{ dob: string | null; gender: string | null }>();
+    return json({ dob: row?.dob ?? null, gender: row?.gender ?? null });
+  }
+
+  if (request.method === "PUT") {
+    const body = await readBody(request);
+
+    let dob: string | null = null;
+    if (body.dob != null) {
+      if (typeof body.dob !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.dob)) {
+        return json({ error: "dob must be an ISO date string (YYYY-MM-DD)" }, 400);
+      }
+      dob = body.dob;
+    }
+
+    let gender: string | null = null;
+    if (body.gender != null) {
+      if (typeof body.gender !== "string" || !GENDER_OPTIONS.has(body.gender)) {
+        return json({ error: "Invalid gender value" }, 400);
+      }
+      gender = body.gender;
+    }
+
+    await env.DB.prepare(
+      `INSERT INTO accounts (user_id, dob, gender, updated_at) VALUES (?, ?, ?, datetime('now'))
+       ON CONFLICT (user_id) DO UPDATE SET dob = excluded.dob, gender = excluded.gender, updated_at = excluded.updated_at`
+    )
+      .bind(uid, dob, gender)
+      .run();
+
+    return json({ dob, gender });
+  }
+
+  return json({ error: "Method not allowed" }, 405);
+}
+
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const AVATAR_CONTENT_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+async function handleAvatarUpload(request: Request, env: Env): Promise<Response> {
+  const uid = await requireUser(request, env);
+
+  const contentType = request.headers.get("Content-Type") || "";
+  if (!AVATAR_CONTENT_TYPES.has(contentType)) {
+    return json({ error: "Only JPEG, PNG, or WebP images are supported" }, 400);
+  }
+
+  const bytes = await request.arrayBuffer();
+  if (bytes.byteLength === 0) return json({ error: "Empty file" }, 400);
+  if (bytes.byteLength > AVATAR_MAX_BYTES) return json({ error: "Image must be under 2MB" }, 400);
+
+  await env.AVATARS.put(`avatars/${uid}`, bytes, { httpMetadata: { contentType } });
+  return json({ ok: true });
+}
+
+// Public and unauthenticated by design — a plain <img>/next/image src can't
+// carry a bearer token, and a profile photo is no more sensitive than a
+// Google-account photoURL, which is already public the same way. Mirrors
+// r2-video-worker.js's plain .get(key) → stream-back pattern.
+async function handleAvatarServe(env: Env, uid: string): Promise<Response> {
+  const object = await env.AVATARS.get(`avatars/${uid}`);
+  if (!object) return json({ error: "Not found" }, 404);
+  const headers = new Headers(CORS_HEADERS);
+  headers.set("Content-Type", object.httpMetadata?.contentType || "application/octet-stream");
+  headers.set("Cache-Control", "public, max-age=300");
+  return new Response(object.body, { headers });
 }
 
 async function handleSearch(request: Request, env: Env): Promise<Response> {
@@ -444,6 +534,11 @@ const worker = {
     try {
       if (url.pathname === "/health") return json({ ok: true });
       if (url.pathname === "/profiles") return await handleProfiles(request, env);
+      if (url.pathname === "/account") return await handleAccount(request, env);
+      if (url.pathname === "/account/avatar" && request.method === "POST")
+        return await handleAvatarUpload(request, env);
+      if (url.pathname.startsWith("/avatar/") && request.method === "GET")
+        return await handleAvatarServe(env, url.pathname.slice("/avatar/".length));
       if (url.pathname === "/watchlist") return await handleRelationRoute(request, env, "watchlist");
       if (url.pathname === "/watched") return await handleRelationRoute(request, env, "watched");
       if (url.pathname === "/ratings" && request.method === "GET")

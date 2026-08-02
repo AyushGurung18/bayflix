@@ -93,3 +93,14 @@ CREATE TABLE IF NOT EXISTS user_ratings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_ratings_profile ON user_ratings (profile_id, rated_at DESC);
+
+-- Account-level personal info (one row per Firebase login, not per
+-- Netflix-style sub-profile) — dob/gender describe the account holder, not
+-- a "who's watching" persona, so they live here rather than on `profiles`.
+-- Name/email/photo already have a home on the Firebase User object itself.
+CREATE TABLE IF NOT EXISTS accounts (
+  user_id TEXT PRIMARY KEY,
+  dob TEXT,
+  gender TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

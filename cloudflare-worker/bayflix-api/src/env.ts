@@ -2,6 +2,7 @@ export interface Env {
   DB: D1Database;
   VECTORIZE_INDEX: VectorizeIndex;
   AI: Ai;
+  AVATARS: R2Bucket;
   FIREBASE_PROJECT_ID: string;
   ADMIN_KEY?: string;
   OMDB_API_KEY?: string;
