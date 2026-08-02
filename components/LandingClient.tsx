@@ -11,43 +11,30 @@ const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
 const FEATURES = [
   {
+    icon: Star,
+    title: "Every rating, one place",
+    body: "IMDb, Rotten Tomatoes, Metacritic, and TMDB scores together at a glance — no more hopping between five different sites to see what people actually think.",
+  },
+  {
     icon: Search,
-    title: "AI semantic search",
-    body: "Describe a plot in plain English — “a heist crew pulls one last job” — and get real matches, not keyword hits. Powered by Cloudflare Workers AI embeddings and a Vectorize vector index.",
+    title: "Search by what it's about",
+    body: "Describe a plot in plain English — “a heist crew pulls one last job” — and get real matches, not just keyword hits.",
   },
   {
     icon: Sparkles,
-    title: "Personalized recommendations",
-    body: "A taste vector built from what you've watched and rated, weighted by your star ratings — not just “more of what's trending.”",
+    title: "Recommendations that fit",
+    body: "Built from what you've actually watched and rated, not just “more of what's trending this week.”",
   },
   {
     icon: Users,
-    title: "Multi-profile support",
-    body: "Up to five profiles per account, Netflix-style — each with its own watchlist, watched history, ratings, and independently personalized recommendations.",
-  },
-  {
-    icon: Star,
-    title: "Real ratings, cached responsibly",
-    body: "IMDb, Rotten Tomatoes, Metacritic, and TMDB scores, cached in a real database with a 30-day TTL so free-tier API quotas survive real traffic.",
+    title: "A profile for everyone",
+    body: "Up to five profiles per account — each with its own watchlist, history, ratings, and recommendations, so the whole household keeps its own taste.",
   },
   {
     icon: Play,
-    title: "Custom HLS video player",
-    body: "Adaptive quality, audio/subtitle track switching, scrubbing with live preview — built from scratch with hls.js against a Cloudflare Worker + R2 bucket.",
+    title: "Where to watch, and how",
+    body: "Season and episode browsing, cast pages, watch-provider availability, and a full-featured player with adaptive quality and subtitle support.",
   },
-];
-
-const STACK = [
-  "Next.js 16",
-  "React 19",
-  "TypeScript",
-  "Tailwind CSS v4",
-  "Cloudflare Workers",
-  "D1",
-  "Vectorize",
-  "Workers AI",
-  "Firebase Auth",
-  "hls.js",
 ];
 
 export default function LandingClient() {
@@ -97,14 +84,14 @@ export default function LandingClient() {
 
           <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
             <h1 className="max-w-3xl animate-fade-in text-4xl font-black leading-tight text-shadow sm:text-6xl">
-              Discovery, built like a real product.
+              Every rating that matters. One search away.
             </h1>
             <p className="mt-4 text-lg text-neutral-200 sm:text-2xl">
-              AI-powered recommendations, semantic search, and a custom video player.
+              IMDb, Rotten Tomatoes, Metacritic, and TMDB — together, plus AI-powered discovery
+              that actually gets your taste.
             </p>
             <p className="mt-2 text-base text-neutral-300 sm:text-lg">
-              A full-stack portfolio project &mdash; not a licensed streaming service. Enter your
-              email to explore the demo.
+              Enter your email to get started.
             </p>
 
             <div className="mt-6 flex w-full max-w-xl flex-col gap-3 sm:flex-row">
@@ -132,23 +119,14 @@ export default function LandingClient() {
       <section className="border-t border-neutral-800 bg-ink px-6 py-20 sm:px-16">
         <div className="mx-auto max-w-6xl">
           <p className="mb-2 text-center text-xs font-semibold uppercase tracking-widest text-brand">
-            Under the hood
+            Why Bayflix
           </p>
           <h2 className="mx-auto max-w-2xl text-center text-3xl font-black sm:text-4xl">
-            A real streaming platform&rsquo;s engineering, built as a portfolio project
+            Stop checking five different sites for one answer
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-neutral-400">
-            Bayflix is an independent full-stack project by{" "}
-            <a
-              href="https://ayushgurung.com"
-              target="_blank"
-              rel="noreferrer"
-              className="text-neutral-300 underline decoration-neutral-600 underline-offset-2 hover:text-white"
-            >
-              Ayush Gurung
-            </a>{" "}
-            demonstrating real authentication, a custom video player, and an AI-powered
-            recommendation engine &mdash; running entirely on free-tier infrastructure.
+            Every rating that matters, side by side, plus discovery that understands what
+            you&rsquo;re actually in the mood for.
           </p>
 
           <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
@@ -164,22 +142,6 @@ export default function LandingClient() {
                 <p className="text-sm leading-relaxed text-neutral-400">{body}</p>
               </div>
             ))}
-          </div>
-
-          <div className="mt-16 text-center">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-neutral-500">
-              Built with
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {STACK.map((tech) => (
-                <span
-                  key={tech}
-                  className="rounded-full border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300"
-                >
-                  {tech}
-                </span>
-              ))}
-            </div>
           </div>
         </div>
       </section>

@@ -152,12 +152,9 @@ export default function AuthForm({
               </>
             ) : (
               <>
-                <h1 className="mb-1 text-2xl font-semibold sm:text-3xl">
+                <h1 className="mb-6 text-2xl font-semibold sm:text-3xl">
                   {isSignup ? "Create your account" : "Sign In"}
                 </h1>
-                <p className="mb-6 text-xs text-neutral-500">
-                  Bayflix is a portfolio demo project — no real subscription, no payment.
-                </p>
 
                 {step === "password" ? (
                   <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3">

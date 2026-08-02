@@ -19,11 +19,11 @@ const SITE_URL = "https://bayflix.ayushgurung.com";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Bayflix — AI-Powered Streaming Browser",
+    default: "Bayflix — IMDb, Rotten Tomatoes & Metacritic Ratings in One Place",
     template: "%s | Bayflix",
   },
   description:
-    "Bayflix is a TMDB-powered streaming browser with AI semantic search and recommendations, built with Next.js and Cloudflare Workers. Watch anywhere, cancel anytime.",
+    "Bayflix brings IMDb, Rotten Tomatoes, Metacritic, and TMDB ratings together in one place, with AI-powered semantic search and recommendations.",
   manifest: "/manifest.json",
   robots: { index: true, follow: true },
   openGraph: {

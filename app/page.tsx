@@ -2,23 +2,21 @@ import type { Metadata } from "next";
 import LandingClient from "@/components/LandingClient";
 
 const SITE_URL = "https://bayflix.ayushgurung.com";
-const TITLE = "Bayflix — AI-Powered Streaming Browser | Next.js & Cloudflare Portfolio Project";
+const TITLE = "Bayflix — IMDb, Rotten Tomatoes & Metacritic Ratings in One Place";
 const DESCRIPTION =
-  "Bayflix is a full-stack Netflix-style streaming browser built by Ayush Gurung: real Firebase authentication, a custom HLS video player, and an AI-powered semantic search and recommendation engine on Cloudflare Workers, D1, Vectorize, and Workers AI.";
+  "Bayflix brings IMDb, Rotten Tomatoes, Metacritic, and TMDB ratings together in one place, with AI-powered semantic search and recommendations built around what you actually watch.";
 
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   keywords: [
     "Bayflix",
-    "Ayush Gurung",
-    "Next.js portfolio project",
-    "Netflix clone",
-    "Cloudflare Workers project",
-    "AI recommendation engine",
-    "semantic search movies",
-    "full stack developer portfolio",
-    "TMDB API app",
+    "movie ratings aggregator",
+    "IMDb Rotten Tomatoes Metacritic ratings",
+    "AI movie recommendations",
+    "semantic movie search",
+    "TV show ratings",
+    "where to watch movies",
   ],
   alternates: { canonical: SITE_URL },
   openGraph: {
