@@ -10,6 +10,8 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink,
   sendEmailVerification,
+  sendPasswordResetEmail,
+  verifyBeforeUpdateEmail,
   updateProfile,
   signOut,
   type User,
@@ -39,6 +41,9 @@ interface AuthContextValue {
   sendMagicLink: (email: string) => Promise<void>;
   isMagicLinkUrl: (url: string) => boolean;
   completeMagicLinkSignIn: (email: string, url: string) => Promise<UserCredential>;
+  sendPasswordReset: (email: string) => Promise<void>;
+  changeEmail: (newEmail: string) => Promise<void>;
+  updateFirebaseProfile: (fields: { displayName?: string; photoURL?: string }) => Promise<void>;
   logOut: () => Promise<void>;
 }
 
@@ -48,6 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [emailVerified, setEmailVerified] = useState(false);
   const [loading, setLoading] = useState(true);
+  // updateProfile() mutates the SDK's User object in place rather than
+  // replacing it, so setting displayName/photoURL doesn't by itself change
+  // the `currentUser` reference — nothing re-renders to pick up the new
+  // values. Bumping this after a successful update forces AuthProvider to
+  // recreate its context `value` object, which is enough for consumers to
+  // re-read the (already-mutated) fields off the same User object. Same
+  // staleness class emailVerified already works around above.
+  const [, setProfileVersion] = useState(0);
 
   useEffect(() => {
     // Only ever runs client-side (see lib/firebase.ts) — `auth` is guaranteed
@@ -67,23 +80,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInGoogle = useCallback(() => signInWithPopup(auth!, googleProvider), []);
 
+  // Same branded-send-with-fallback shape as sendMagicLink: mints the link
+  // via our own route (Admin SDK + Resend) and falls back to Firebase's
+  // client-side sendEmailVerification while that route is unconfigured.
+  const sendVerificationEmailFor = useCallback(async (user: User) => {
+    const token = await user.getIdToken();
+    const res = await fetch("/api/auth/verify-email", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 501) {
+      await sendEmailVerification(user);
+    } else if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to send verification email.");
+    }
+  }, []);
+
   // Password-based signup is the one path with no built-in proof the person
   // typing the email actually controls it (unlike the magic-link and Google
-  // paths, both inherently verified) — send Firebase's verification email so
+  // paths, both inherently verified) — send a verification email so
   // RequireAuth has something real to gate on before letting them into the app.
-  const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
-    const credential = await createUserWithEmailAndPassword(auth!, email, password);
-    if (displayName) {
-      await updateProfile(credential.user, { displayName });
-    }
-    await sendEmailVerification(credential.user);
-    return credential;
-  }, []);
+  const signUp = useCallback(
+    async (email: string, password: string, displayName?: string) => {
+      const credential = await createUserWithEmailAndPassword(auth!, email, password);
+      if (displayName) {
+        await updateProfile(credential.user, { displayName });
+      }
+      await sendVerificationEmailFor(credential.user);
+      return credential;
+    },
+    [sendVerificationEmailFor]
+  );
 
   const resendVerificationEmail = useCallback(async () => {
     if (!auth?.currentUser) return;
-    await sendEmailVerification(auth.currentUser);
-  }, []);
+    await sendVerificationEmailFor(auth.currentUser);
+  }, [sendVerificationEmailFor]);
 
   const refreshEmailVerified = useCallback(async () => {
     if (!auth?.currentUser) return false;
@@ -98,11 +131,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // signed in before. Same call for both "new" and "returning" users, which
   // is what lets the UI skip the old "check if this email exists, then
   // route to /signin or /signup" dance entirely.
+  //
+  // Sending goes through our own API route first, which mints the link via
+  // the Admin SDK and emails a branded message from our own domain (avoids
+  // Firebase's shared, spam-flagged firebaseapp.com sender). That route
+  // responds 501 until its Resend/Admin SDK env vars are configured, in
+  // which case this falls back to Firebase's built-in sender so sign-in
+  // keeps working in the meantime.
   const sendMagicLink = useCallback(async (email: string) => {
-    await sendSignInLinkToEmail(auth!, email, {
-      url: `${window.location.origin}/auth/finish`,
-      handleCodeInApp: true,
+    const res = await fetch("/api/auth/magic-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
     });
+
+    if (res.status === 501) {
+      await sendSignInLinkToEmail(auth!, email, {
+        url: `${window.location.origin}/auth/finish`,
+        handleCodeInApp: true,
+      });
+    } else if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to send sign-in link.");
+    }
+
     localStorage.setItem(MAGIC_EMAIL_KEY, email);
   }, []);
 
@@ -113,6 +165,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(MAGIC_EMAIL_KEY);
     return credential;
   }, []);
+
+  const sendPasswordReset = useCallback(async (email: string) => {
+    const res = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    if (res.status === 501) {
+      await sendPasswordResetEmail(auth!, email);
+    } else if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to send reset link.");
+    }
+  }, []);
+
+  const changeEmail = useCallback(async (newEmail: string) => {
+    if (!auth?.currentUser) throw new Error("Not signed in.");
+    const token = await auth.currentUser.getIdToken();
+    const res = await fetch("/api/auth/change-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ newEmail }),
+    });
+
+    if (res.status === 501) {
+      await verifyBeforeUpdateEmail(auth.currentUser, newEmail);
+    } else if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to send confirmation email.");
+    }
+  }, []);
+
+  const updateFirebaseProfile = useCallback(
+    async (fields: { displayName?: string; photoURL?: string }) => {
+      if (!auth?.currentUser) throw new Error("Not signed in.");
+      await updateProfile(auth.currentUser, fields);
+      setProfileVersion((v) => v + 1);
+    },
+    []
+  );
 
   const logOut = useCallback(() => signOut(auth!), []);
 
@@ -128,6 +221,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sendMagicLink,
     isMagicLinkUrl,
     completeMagicLinkSignIn,
+    sendPasswordReset,
+    changeEmail,
+    updateFirebaseProfile,
     logOut,
   };
 

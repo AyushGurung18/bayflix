@@ -5,6 +5,8 @@ import Image from "next/image";
 import { Mail, ArrowLeft } from "lucide-react";
 import { useState, type FormEvent, type SVGProps } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { mapAuthError } from "@/lib/auth-errors";
+import { isValidEmail } from "@/lib/validators";
 
 const GoogleIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 48 48" width="18" height="18" {...props}>
@@ -27,8 +29,6 @@ const GoogleIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
 interface AuthFormProps {
   mode: "signin" | "signup";
   background: string;
@@ -37,7 +37,7 @@ interface AuthFormProps {
   defaultEmail?: string;
 }
 
-type Step = "email" | "sent" | "password";
+type Step = "email" | "sent" | "password" | "forgot" | "forgot-sent";
 
 export default function AuthForm({
   mode,
@@ -47,7 +47,7 @@ export default function AuthForm({
   defaultEmail = "",
 }: AuthFormProps) {
   const isSignup = mode === "signup";
-  const { sendMagicLink } = useAuth();
+  const { sendMagicLink, sendPasswordReset } = useAuth();
   const [step, setStep] = useState<Step>("email");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState(defaultEmail);
@@ -100,6 +100,24 @@ export default function AuthForm({
     }
   };
 
+  const handleForgotSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!isValidEmail(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await sendPasswordReset(email);
+      setStep("forgot-sent");
+    } catch (err) {
+      setError(mapAuthError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleGoogle = async () => {
     setError("");
     setSubmitting(true);
@@ -133,22 +151,71 @@ export default function AuthForm({
 
         <main className="flex flex-1 items-center justify-center px-4 pb-16">
           <div className="w-full max-w-md animate-scale-in rounded-md bg-black/75 p-8 sm:p-12 backdrop-blur-sm">
-            {step === "sent" ? (
+            {step === "sent" || step === "forgot-sent" ? (
               <>
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-brand/15 text-brand">
                   <Mail size={22} />
                 </div>
                 <h1 className="mb-2 text-2xl font-semibold sm:text-3xl">Check your email</h1>
-                <p className="text-sm leading-relaxed text-neutral-300">
-                  We sent a sign-in link to <span className="font-medium text-white">{email}</span>.
-                  Open it on this device to finish signing in — no password needed.
+                {step === "sent" ? (
+                  <p className="text-sm leading-relaxed text-neutral-300">
+                    We sent a sign-in link to <span className="font-medium text-white">{email}</span>.
+                    Open it on this device to finish signing in — no password needed.
+                  </p>
+                ) : (
+                  <p className="text-sm leading-relaxed text-neutral-300">
+                    We sent a password reset link to <span className="font-medium text-white">{email}</span>.
+                    Open it to choose a new password.
+                  </p>
+                )}
+                <p className="mt-3 text-sm leading-relaxed text-neutral-400">
+                  Don&rsquo;t see it? Check your spam or junk folder — it can take a minute or
+                  two to arrive.
                 </p>
                 <button
-                  onClick={() => setStep("email")}
+                  onClick={() => setStep(step === "sent" ? "email" : "password")}
                   className="mt-6 flex items-center gap-1.5 text-sm font-medium text-neutral-400 hover:text-white"
                 >
-                  <ArrowLeft size={15} /> Use a different email
+                  <ArrowLeft size={15} /> {step === "sent" ? "Use a different email" : "Back to sign in"}
                 </button>
+              </>
+            ) : step === "forgot" ? (
+              <>
+                <h1 className="mb-2 text-2xl font-semibold sm:text-3xl">Reset your password</h1>
+                <p className="mb-6 text-sm leading-relaxed text-neutral-400">
+                  Enter your email and we&rsquo;ll send you a link to choose a new password.
+                </p>
+                <form onSubmit={handleForgotSubmit} className="flex flex-col gap-3">
+                  <input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email"
+                    type="email"
+                    autoComplete="email"
+                    autoFocus
+                    className="rounded bg-neutral-800 px-4 py-3.5 text-sm text-white placeholder-neutral-400 outline-none ring-1 ring-transparent focus:ring-white/40"
+                  />
+
+                  {error && <p className="text-sm font-medium text-orange-400">{error}</p>}
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="mt-1 w-full rounded bg-brand py-3.5 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {submitting ? "Sending…" : "Send reset link"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError("");
+                      setStep("password");
+                    }}
+                    className="flex items-center gap-1.5 text-sm font-medium text-neutral-400 hover:text-white"
+                  >
+                    <ArrowLeft size={15} /> Back to sign in
+                  </button>
+                </form>
               </>
             ) : (
               <>
@@ -183,6 +250,19 @@ export default function AuthForm({
                       autoComplete={isSignup ? "new-password" : "current-password"}
                       className="rounded bg-neutral-800 px-4 py-3.5 text-sm text-white placeholder-neutral-400 outline-none ring-1 ring-transparent focus:ring-white/40"
                     />
+
+                    {!isSignup && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError("");
+                          setStep("forgot");
+                        }}
+                        className="self-end text-xs font-medium text-neutral-400 hover:text-white"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
 
                     {error && <p className="text-sm font-medium text-orange-400">{error}</p>}
 
@@ -277,24 +357,4 @@ export default function AuthForm({
       </div>
     </div>
   );
-}
-
-function mapAuthError(err: unknown): string {
-  const code = (err as { code?: string })?.code || "";
-  if (code.includes("user-not-found") || code.includes("wrong-password") || code.includes("invalid-credential")) {
-    return "Incorrect email or password.";
-  }
-  if (code.includes("email-already-in-use")) {
-    return "This email already has a password-based account. Try signing in with a password instead.";
-  }
-  if (code.includes("popup-closed-by-user")) {
-    return "Sign-in was cancelled.";
-  }
-  if (code.includes("weak-password")) {
-    return "Please choose a stronger password.";
-  }
-  if (code.includes("too-many-requests")) {
-    return "Too many attempts. Please wait a moment and try again.";
-  }
-  return "Something went wrong. Please try again.";
 }
