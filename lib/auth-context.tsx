@@ -9,6 +9,7 @@ import {
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
+  sendEmailVerification,
   updateProfile,
   signOut,
   type User,
@@ -25,6 +26,13 @@ const MAGIC_EMAIL_KEY = "bayflix:magic-link-email";
 interface AuthContextValue {
   currentUser: User | null;
   loading: boolean;
+  // Separate from currentUser.emailVerified: Firebase mutates that flag on
+  // the existing User object in place after reload(), which onAuthStateChanged
+  // won't refire for and React can't detect from an identical object
+  // reference — this is tracked and refreshed independently instead.
+  emailVerified: boolean;
+  refreshEmailVerified: () => Promise<boolean>;
+  resendVerificationEmail: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<UserCredential>;
   signInGoogle: () => Promise<UserCredential>;
   signUp: (email: string, password: string, displayName?: string) => Promise<UserCredential>;
@@ -38,6 +46,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // to be initialized by the time an effect in a mounted component fires.
     const unsubscribe = onAuthStateChanged(auth!, (user) => {
       setCurrentUser(user);
+      setEmailVerified(user?.emailVerified ?? false);
       setLoading(false);
     });
     return unsubscribe;
@@ -57,12 +67,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInGoogle = useCallback(() => signInWithPopup(auth!, googleProvider), []);
 
+  // Password-based signup is the one path with no built-in proof the person
+  // typing the email actually controls it (unlike the magic-link and Google
+  // paths, both inherently verified) — send Firebase's verification email so
+  // RequireAuth has something real to gate on before letting them into the app.
   const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
     const credential = await createUserWithEmailAndPassword(auth!, email, password);
     if (displayName) {
       await updateProfile(credential.user, { displayName });
     }
+    await sendEmailVerification(credential.user);
     return credential;
+  }, []);
+
+  const resendVerificationEmail = useCallback(async () => {
+    if (!auth?.currentUser) return;
+    await sendEmailVerification(auth.currentUser);
+  }, []);
+
+  const refreshEmailVerified = useCallback(async () => {
+    if (!auth?.currentUser) return false;
+    await auth.currentUser.reload();
+    const verified = auth.currentUser.emailVerified;
+    setEmailVerified(verified);
+    return verified;
   }, []);
 
   // Passwordless sign-in: emails a link that, when opened, signs the user
@@ -91,6 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     currentUser,
     loading,
+    emailVerified,
+    refreshEmailVerified,
+    resendVerificationEmail,
     signIn,
     signInGoogle,
     signUp,
