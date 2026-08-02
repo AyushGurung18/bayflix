@@ -1,6 +1,12 @@
 import type { Env, MediaType } from "./env";
 
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — ratings rarely move
+// A row can come back with an IMDb rating but no Rotten Tomatoes/Metacritic
+// simply because those aggregators hadn't caught up to OMDb yet at fetch
+// time (common right after a release) — the full 30-day TTL would otherwise
+// leave a new title looking incomplete for a month even after OMDb gets the
+// missing scores. Incomplete rows get rechecked much sooner instead.
+const INCOMPLETE_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 
 interface RatingsCacheRow {
   tmdb_id: number;
@@ -35,8 +41,10 @@ interface RatingsLookupArgs {
   year?: string | null;
 }
 
-function isFresh(fetchedAt: string): boolean {
-  return Date.now() - new Date(`${fetchedAt}Z`).getTime() < CACHE_TTL_MS;
+function isFresh(row: RatingsCacheRow): boolean {
+  const age = Date.now() - new Date(`${row.fetched_at}Z`).getTime();
+  const isComplete = !row.found || Boolean(row.rotten_tomatoes || row.metacritic);
+  return age < (isComplete ? CACHE_TTL_MS : INCOMPLETE_TTL_MS);
 }
 
 function rowToResult(row: RatingsCacheRow): RatingsResult {
@@ -53,13 +61,18 @@ function rowToResult(row: RatingsCacheRow): RatingsResult {
 
 async function fetchFromOmdb(
   env: Env,
-  { imdbId, title, year }: Pick<RatingsLookupArgs, "imdbId" | "title" | "year">
+  { imdbId, title, year, mediaType }: Pick<RatingsLookupArgs, "imdbId" | "title" | "year" | "mediaType">
 ): Promise<OmdbFields | null> {
   const params = new URLSearchParams({ apikey: env.OMDB_API_KEY! });
   if (imdbId) params.set("i", imdbId);
   else {
     params.set("t", title!);
     if (year) params.set("y", year);
+    // Without this, a title/year search for a remake can match the wrong
+    // entry when a movie and TV series (or two unrelated titles) share both
+    // a name and release year — this only matters on the title/year
+    // fallback path; an imdbId lookup is already unambiguous.
+    params.set("type", mediaType === "tv" ? "series" : "movie");
   }
 
   const res = await fetch(`https://www.omdbapi.com/?${params.toString()}`);
@@ -106,7 +119,7 @@ export async function getCachedRatings(
     .bind(tmdbId, mediaType)
     .first<RatingsCacheRow>();
 
-  if (cached && isFresh(cached.fetched_at)) {
+  if (cached && isFresh(cached)) {
     return rowToResult(cached);
   }
 
@@ -116,7 +129,7 @@ export async function getCachedRatings(
 
   let fresh: OmdbFields | null;
   try {
-    fresh = await fetchFromOmdb(env, { imdbId, title, year });
+    fresh = await fetchFromOmdb(env, { imdbId, title, year, mediaType });
   } catch (err) {
     console.error("OMDb fetch failed", err);
     return cached ? rowToResult(cached) : { found: false };

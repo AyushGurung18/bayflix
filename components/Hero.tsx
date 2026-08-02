@@ -30,7 +30,7 @@ export default function Hero({ item: media, mediaType = "movie", onTrailer }: He
   const [showVideo, setShowVideo] = useState(false);
   const [muted, toggleMuted] = usePersistentMute();
   const sectionRef = useRef<HTMLElement>(null);
-  const inView = useInView(sectionRef, { amount: 0.4 });
+  const inView = useInView(sectionRef, { amount: 0.2 });
 
   const trailer = pickTrailer(media?.videos);
 

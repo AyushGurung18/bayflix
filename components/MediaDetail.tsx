@@ -70,7 +70,7 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   const [showHeroVideo, setShowHeroVideo] = useState(false);
   const [heroMuted, toggleHeroMuted] = usePersistentMute();
   const heroRef = useRef<HTMLElement>(null);
-  const heroInView = useInView(heroRef, { amount: 0.4 });
+  const heroInView = useInView(heroRef, { amount: 0.2 });
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
 
   useEffect(() => {

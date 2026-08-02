@@ -200,7 +200,12 @@ export default function MovieCard({ item, mediaType, onTrailer, priority = false
                     </motion.div>
                   </div>
                 </div>
-                <p className="truncate text-sm font-semibold text-white">{title}</p>
+                <Link
+                  href={infoHref}
+                  className="block truncate text-sm font-semibold text-white hover:underline"
+                >
+                  {title}
+                </Link>
                 <div className="mt-1 flex items-center gap-2 text-xs text-neutral-400">
                   {rating && (
                     <span className="flex items-center gap-0.5 text-green-400">

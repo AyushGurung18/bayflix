@@ -133,7 +133,13 @@ export default function YouTubeLivePlayer({ videoId, muted, playing = true }: Yo
             readyRef.current = true;
             applyCoverStyle(e.target.getIframe());
             if (!mutedRef.current) e.target.unMute();
+            // autoplay:1 above means the player starts playing on its own the
+            // moment it's ready, regardless of the current `playing` prop —
+            // if it became ready while already out of view (mid-scroll, or a
+            // restored scroll position on back-navigation), nothing else
+            // stops it. Explicitly pausing here closes that gap.
             if (playingRef.current) e.target.playVideo();
+            else e.target.pauseVideo();
           },
         },
       });
