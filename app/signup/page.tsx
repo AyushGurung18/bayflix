@@ -11,7 +11,7 @@ function SignUpForm() {
   const { signUp, signInGoogle } = useAuth();
   const defaultEmail = searchParams.get("email") || "";
 
-  const handleSubmit = async ({
+  const handlePasswordSubmit = async ({
     email,
     password,
     displayName,
@@ -33,7 +33,7 @@ function SignUpForm() {
     <AuthForm
       mode="signup"
       background="/images/bg-hero-2.jpg"
-      onSubmit={handleSubmit}
+      onPasswordSubmit={handlePasswordSubmit}
       onGoogle={handleGoogle}
       defaultEmail={defaultEmail}
     />

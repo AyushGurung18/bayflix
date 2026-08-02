@@ -6,6 +6,9 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   createUserWithEmailAndPassword,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
   updateProfile,
   signOut,
   type User,
@@ -13,12 +16,21 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "./firebase";
 
+// Where sendSignInLinkToEmail stashes the address, since the link itself
+// doesn't carry it — signInWithEmailLink needs it back to complete, and if
+// the link is opened on the same browser/device it was requested from we
+// can supply it automatically instead of asking the user to retype it.
+const MAGIC_EMAIL_KEY = "bayflix:magic-link-email";
+
 interface AuthContextValue {
   currentUser: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<UserCredential>;
   signInGoogle: () => Promise<UserCredential>;
   signUp: (email: string, password: string, displayName?: string) => Promise<UserCredential>;
+  sendMagicLink: (email: string) => Promise<void>;
+  isMagicLinkUrl: (url: string) => boolean;
+  completeMagicLinkSignIn: (email: string, url: string) => Promise<UserCredential>;
   logOut: () => Promise<void>;
 }
 
@@ -53,9 +65,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return credential;
   }, []);
 
+  // Passwordless sign-in: emails a link that, when opened, signs the user
+  // in — creating the account automatically if this address has never
+  // signed in before. Same call for both "new" and "returning" users, which
+  // is what lets the UI skip the old "check if this email exists, then
+  // route to /signin or /signup" dance entirely.
+  const sendMagicLink = useCallback(async (email: string) => {
+    await sendSignInLinkToEmail(auth!, email, {
+      url: `${window.location.origin}/auth/finish`,
+      handleCodeInApp: true,
+    });
+    localStorage.setItem(MAGIC_EMAIL_KEY, email);
+  }, []);
+
+  const isMagicLinkUrl = useCallback((url: string) => isSignInWithEmailLink(auth!, url), []);
+
+  const completeMagicLinkSignIn = useCallback(async (email: string, url: string) => {
+    const credential = await signInWithEmailLink(auth!, email, url);
+    localStorage.removeItem(MAGIC_EMAIL_KEY);
+    return credential;
+  }, []);
+
   const logOut = useCallback(() => signOut(auth!), []);
 
-  const value: AuthContextValue = { currentUser, loading, signIn, signInGoogle, signUp, logOut };
+  const value: AuthContextValue = {
+    currentUser,
+    loading,
+    signIn,
+    signInGoogle,
+    signUp,
+    sendMagicLink,
+    isMagicLinkUrl,
+    completeMagicLinkSignIn,
+    logOut,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -65,3 +108,5 @@ export function useAuth() {
   if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 }
+
+export { MAGIC_EMAIL_KEY };

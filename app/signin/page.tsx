@@ -1,14 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AuthForm from "@/components/AuthForm";
 import { useAuth } from "@/lib/auth-context";
 
-export default function SignInPage() {
+function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn, signInGoogle } = useAuth();
+  const defaultEmail = searchParams.get("email") || "";
 
-  const handleSubmit = async ({ email, password }: { email: string; password: string }) => {
+  const handlePasswordSubmit = async ({ email, password }: { email: string; password: string }) => {
     await signIn(email, password);
     router.push("/browse");
   };
@@ -22,8 +25,17 @@ export default function SignInPage() {
     <AuthForm
       mode="signin"
       background="/images/bg-hero-1.jpg"
-      onSubmit={handleSubmit}
+      onPasswordSubmit={handlePasswordSubmit}
       onGoogle={handleGoogle}
+      defaultEmail={defaultEmail}
     />
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignInForm />
+    </Suspense>
   );
 }

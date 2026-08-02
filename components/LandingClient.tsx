@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ChevronRight, Sparkles, Users, Play, Star, Search } from "lucide-react";
-import { fetchSignInMethodsForEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import Footer from "@/components/Footer";
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -55,29 +53,20 @@ const STACK = [
 export default function LandingClient() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
 
-  const handleGetStarted = async () => {
+  // No more "check if this email already has an account, then guess which
+  // page to send them to" — sign-in is passwordless by default (a magic
+  // link that creates the account automatically the first time), so /signin
+  // handles both new and returning visitors identically. This just hands
+  // the typed email off so it's pre-filled instead of thrown away.
+  const handleGetStarted = () => {
     setError("");
     if (!isValidEmail(email)) {
       setError("Please enter a valid email address.");
       return;
     }
-    setChecking(true);
-    try {
-      const methods = await fetchSignInMethodsForEmail(auth!, email);
-      if (methods.length > 0) {
-        router.push("/signin");
-      } else {
-        router.push(`/signup?email=${encodeURIComponent(email)}`);
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setChecking(false);
-    }
+    router.push(`/signin?email=${encodeURIComponent(email)}`);
   };
 
   return (
@@ -108,13 +97,14 @@ export default function LandingClient() {
 
           <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
             <h1 className="max-w-3xl animate-fade-in text-4xl font-black leading-tight text-shadow sm:text-6xl">
-              Unlimited movies, TV shows, and more.
+              Discovery, built like a real product.
             </h1>
             <p className="mt-4 text-lg text-neutral-200 sm:text-2xl">
-              Watch anywhere. Cancel anytime.
+              AI-powered recommendations, semantic search, and a custom video player.
             </p>
             <p className="mt-2 text-base text-neutral-300 sm:text-lg">
-              Ready to watch? Enter your email to create your account.
+              A full-stack portfolio project &mdash; not a licensed streaming service. Enter your
+              email to explore the demo.
             </p>
 
             <div className="mt-6 flex w-full max-w-xl flex-col gap-3 sm:flex-row">
@@ -128,8 +118,7 @@ export default function LandingClient() {
               />
               <button
                 onClick={handleGetStarted}
-                disabled={checking}
-                className="flex items-center justify-center gap-2 rounded bg-brand px-6 py-4 text-lg font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60"
+                className="flex items-center justify-center gap-2 rounded bg-brand px-6 py-4 text-lg font-semibold text-white transition hover:bg-brand-dark"
               >
                 Get Started
                 <ChevronRight size={22} strokeWidth={3} />
