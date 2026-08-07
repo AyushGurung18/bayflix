@@ -11,7 +11,7 @@ import type {
   TmdbVideo,
 } from "./types";
 
-async function fetchTmdb<T>(path: string, params: Record<string, string | number | boolean> = {}): Promise<T> {
+export async function fetchTmdb<T>(path: string, params: Record<string, string | number | boolean> = {}): Promise<T> {
   const query = new URLSearchParams(
     Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))
   ).toString();

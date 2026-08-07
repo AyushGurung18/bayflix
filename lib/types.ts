@@ -201,3 +201,37 @@ export interface RatingsResult {
   rottenTomatoes?: string | null;
   metacritic?: number | null;
 }
+
+/** Output of /api/cast-graph — a neutral node/edge shape (deliberately not
+ * D3's or Cytoscape's own format, since the two disagree on shape) that
+ * lib/graph-adapters.ts converts on demand. A node is either a `person` or
+ * a `title` (movie/TV); edges always run between the two kinds and carry
+ * the person's character name in that title, when known. */
+export type CastGraphNodeType = "person" | "title";
+
+export interface CastGraphNode {
+  id: string;
+  type: CastGraphNodeType;
+  tmdbId: number;
+  mediaType?: MediaType;
+  label: string;
+  imagePath?: string | null;
+}
+
+export interface CastGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+}
+
+export interface CastGraph {
+  nodes: CastGraphNode[];
+  edges: CastGraphEdge[];
+  /** "connection" mode only — whether a path was found between the two actors. */
+  connected?: boolean;
+  /** "connection" mode only — how many people stand between the two actors (0 = same person, 1 = direct co-stars). */
+  degrees?: number | null;
+  /** Set when the search hit its request budget before exhausting maxHops — the graph may be an incomplete search, not proof of "no connection". */
+  truncated?: boolean;
+}

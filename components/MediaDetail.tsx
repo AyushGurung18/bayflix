@@ -45,6 +45,7 @@ import {
 import { getRatings, getRecommendations } from "@/lib/bayflix-api";
 import { useWatchStatus } from "@/lib/watch-status-context";
 import { useProfiles } from "@/lib/profile-context";
+import { usePosterAccentColor } from "@/lib/use-poster-accent-color";
 import { BLUR_DATA_URL } from "@/lib/image-utils";
 import { usePersistentMute } from "@/lib/use-persistent-mute";
 import type { MediaType, RatingsResult, TmdbDetails, TmdbItem } from "@/lib/types";
@@ -87,6 +88,11 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
   const { configured, watched, ratings: userRatings } = useWatchStatus();
   const { activeProfile } = useProfiles();
+  // data is still null on the initial/loading render — the hook itself
+  // handles a null imageUrl by just not doing anything, so this stays a
+  // stable, unconditional hook call across renders (data?. rather than
+  // gating the call itself, which would violate the Rules of Hooks).
+  const accentColor = usePosterAccentColor(data?.poster_path ? posterUrl(data.poster_path, "w185") : null);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,7 +174,17 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   const forYou = personalRecs.filter((r) => r.id !== data.id);
 
   return (
-    <div className="pb-16">
+    <div className="relative pb-16">
+      {accentColor && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[900px] opacity-60 transition-opacity duration-700"
+          style={{
+            background: `radial-gradient(ellipse 70% 45% at 50% 8%, ${accentColor} 0%, transparent 70%)`,
+            filter: "blur(60px)",
+          }}
+        />
+      )}
       <section ref={heroRef} className="relative h-[46vw] max-h-[70vh] min-h-[360px] w-full overflow-hidden">
         {data.backdrop_path && (
           <Image
