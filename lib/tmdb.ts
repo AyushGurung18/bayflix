@@ -6,6 +6,7 @@ import type {
   TmdbItem,
   TmdbListResponse,
   TmdbPerson,
+  TmdbReleaseDatesCountry,
   TmdbSeasonDetails,
   TmdbVideo,
 } from "./types";
@@ -102,6 +103,22 @@ export function pickCertification(data: TmdbDetails, isTV: boolean): string | nu
     results.flatMap((r) => r.release_dates).find((rd) => rd.certification)?.certification ||
     null
   );
+}
+
+// Digital/physical ("Blu-ray") release date — movies only, TMDB has no
+// equivalent for TV. Per TMDB's release_dates `type` enum, 4 = Digital and
+// 5 = Physical; picks the earliest of those, preferring the US region and
+// falling back across all regions when the US has neither (coverage is
+// contributor-submitted, so plenty of titles have no entry at all).
+export function pickHomeReleaseDate(data: TmdbDetails): string | null {
+  const HOME_TYPES = new Set([4, 5]);
+  const results = data.release_dates?.results ?? [];
+  const datesIn = (entries: TmdbReleaseDatesCountry[]) =>
+    entries.flatMap((r) => r.release_dates).filter((rd) => HOME_TYPES.has(rd.type)).map((rd) => rd.release_date);
+
+  const us = results.filter((r) => r.iso_3166_1 === "US");
+  const dates = datesIn(us).length > 0 ? datesIn(us) : datesIn(results);
+  return dates.length > 0 ? dates.sort()[0] : null;
 }
 
 export function fetchSeasonDetails(tvId: number | string, seasonNumber: number) {

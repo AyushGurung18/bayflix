@@ -94,6 +94,7 @@ export interface TmdbSeasonDetails {
 export interface TmdbReleaseDateEntry {
   certification: string;
   type: number;
+  release_date: string;
 }
 
 export interface TmdbReleaseDatesCountry {
@@ -111,6 +112,16 @@ export interface WatchProviderEntry {
   provider_name: string;
   logo_path: string;
   display_priority?: number;
+}
+
+/** Shared shape for TMDB's `production_companies` (movies + TV) and
+ * `networks` (TV only) — both are `{ id, name, logo_path }` company records,
+ * so one type covers studio and broadcaster logos alike. */
+export interface TmdbCompany {
+  id: number;
+  name: string;
+  logo_path: string | null;
+  origin_country?: string;
 }
 
 export interface WatchProviderCountry {
@@ -139,6 +150,8 @@ export interface TmdbDetails extends TmdbItem {
   seasons?: TmdbSeason[];
   release_dates?: { results: TmdbReleaseDatesCountry[] };
   content_ratings?: { results: TmdbContentRatingsCountry[] };
+  production_companies?: TmdbCompany[];
+  networks?: TmdbCompany[];
   success?: boolean;
 }
 

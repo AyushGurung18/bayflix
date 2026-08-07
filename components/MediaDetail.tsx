@@ -19,12 +19,14 @@ import {
   Volume2,
   VolumeX,
   ShieldAlert,
+  Disc,
 } from "lucide-react";
 import { SkeletonDetail } from "./Skeletons";
 import MovieRow from "./MovieRow";
 import TrailerModal from "./TrailerModal";
 import CircularRatings from "./CircularRatings";
 import WatchProviders from "./WatchProviders";
+import CompanyLogos from "./CompanyLogos";
 import ReviewsSection from "./ReviewsSection";
 import SeasonsEpisodes from "./SeasonsEpisodes";
 import YouTubeLivePlayer from "./YouTubeLivePlayer";
@@ -36,13 +38,16 @@ import {
   posterUrl,
   pickTrailer,
   pickCertification,
+  pickHomeReleaseDate,
   fetchMovieDetails,
   fetchTVDetails,
 } from "@/lib/tmdb";
-import { getRatings } from "@/lib/bayflix-api";
+import { getRatings, getRecommendations } from "@/lib/bayflix-api";
+import { useWatchStatus } from "@/lib/watch-status-context";
+import { useProfiles } from "@/lib/profile-context";
 import { BLUR_DATA_URL } from "@/lib/image-utils";
 import { usePersistentMute } from "@/lib/use-persistent-mute";
-import type { MediaType, RatingsResult, TmdbDetails } from "@/lib/types";
+import type { MediaType, RatingsResult, TmdbDetails, TmdbItem } from "@/lib/types";
 
 const HERO_TRAILER_DELAY = 3000;
 
@@ -58,6 +63,13 @@ function formatMoney(amount?: number) {
   return `$${amount.toLocaleString()}`;
 }
 
+function formatDate(dateStr?: string | null) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
 interface MediaDetailProps {
   id: string;
   mediaType: MediaType;
@@ -67,11 +79,14 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   const [data, setData] = useState<TmdbDetails | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [ratings, setRatings] = useState<RatingsResult | null>(null);
+  const [personalRecs, setPersonalRecs] = useState<TmdbItem[]>([]);
   const [showHeroVideo, setShowHeroVideo] = useState(false);
   const [heroMuted, toggleHeroMuted] = usePersistentMute();
   const heroRef = useRef<HTMLElement>(null);
   const heroInView = useInView(heroRef, { amount: 0.2 });
   const { trailer, openTrailer, openTrailerDirect, closeTrailer } = useTrailer();
+  const { configured, watched, ratings: userRatings } = useWatchStatus();
+  const { activeProfile } = useProfiles();
 
   useEffect(() => {
     let cancelled = false;
@@ -116,6 +131,18 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
     };
   }, [data, mediaType]);
 
+  useEffect(() => {
+    if (!configured || !activeProfile || (watched.length === 0 && userRatings.length === 0)) return;
+    let cancelled = false;
+    getRecommendations(activeProfile.id).then((results) => !cancelled && setPersonalRecs(results));
+    return () => {
+      cancelled = true;
+    };
+    // Same dependency shape as the browse page's identical effect — depends
+    // on lengths, not the arrays themselves, so it only re-fires when a
+    // title is actually added, not on every render.
+  }, [configured, activeProfile, watched.length, userRatings.length]);
+
   if (notFound) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-neutral-400">
@@ -130,10 +157,15 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
   const date = data.release_date || data.first_air_date;
   const trailerInfo = pickTrailer(data.videos);
   const certification = pickCertification(data, isTV);
+  const homeReleaseDate = isTV ? null : pickHomeReleaseDate(data);
   const cast = (data.credits?.cast ?? []).slice(0, 10);
   const recommendations = (data.recommendations?.results ?? []).filter(
     (r) => r.poster_path || r.backdrop_path
   );
+  // Personalized picks from the taste-vector recommender (same feed as the
+  // browse page's "Recommended For You" row) — drop the title being viewed
+  // in case it's still surfaced before this watch/rating is reflected.
+  const forYou = personalRecs.filter((r) => r.id !== data.id);
 
   return (
     <div className="pb-16">
@@ -247,6 +279,7 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
                   <StatCard icon={Globe} label="Language" value={data.spoken_languages?.[0]?.name || "—"} />
                   <StatCard icon={BadgeCheck} label="Status" value={data.status || "—"} />
                   <StatCard icon={ShieldAlert} label="Certification" value={certification || "Not Rated"} />
+                  <StatCard icon={Disc} label="Digital / Blu-ray" value={formatDate(homeReleaseDate) || "TBA"} />
                 </div>
               )}
               {isTV && (
@@ -260,6 +293,8 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
               )}
 
               <WatchProviders results={data["watch/providers"]?.results} />
+              {isTV && <CompanyLogos title="Networks" companies={data.networks} />}
+              <CompanyLogos title="Production Companies" companies={data.production_companies} />
             </div>
 
             <ReviewsSection reviews={data.reviews?.results} className="min-w-0 flex-1" />
@@ -313,6 +348,12 @@ export default function MediaDetail({ id, mediaType }: MediaDetailProps) {
             mediaType={mediaType}
             onTrailer={openTrailer}
           />
+        </div>
+      )}
+
+      {configured && forYou.length > 0 && (
+        <div className="mt-6">
+          <MovieRow title="Recommended For You" items={forYou} onTrailer={openTrailer} />
         </div>
       )}
 
