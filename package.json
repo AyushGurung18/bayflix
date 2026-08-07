@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "cytoscape": "^3.34.0",
     "firebase": "^12.17.0",
     "firebase-admin": "^14.2.0",
     "framer-motion": "^12.43.0",

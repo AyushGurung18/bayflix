@@ -52,6 +52,14 @@ interface NumericRange {
   lte?: number;
 }
 
+// Date filters take ISO "YYYY-MM-DD" strings, not numbers — a distinct
+// type from NumericRange so releaseDate({ gte: 2020 }) is a type error
+// instead of silently sending TMDB a param it'll ignore.
+interface DateRange {
+  gte?: string;
+  lte?: string;
+}
+
 /**
  * Fluent builder over TMDB's /discover/movie and /discover/tv — covers
  * genres, people, companies, keywords, watch providers, numeric ranges
@@ -187,8 +195,8 @@ export class DiscoverQueryBuilder {
     return this;
   }
 
-  // ---- numeric ranges ----
-  private range(base: string, opts: NumericRange): this {
+  // ---- numeric / date ranges ----
+  private range(base: string, opts: NumericRange | DateRange): this {
     if (opts.gte !== undefined) this.params[`${base}.gte`] = String(opts.gte);
     if (opts.lte !== undefined) this.params[`${base}.lte`] = String(opts.lte);
     return this;
@@ -202,20 +210,20 @@ export class DiscoverQueryBuilder {
   runtime(opts: NumericRange): this {
     return this.range("with_runtime", opts);
   }
-  /** Movie only — filters on ANY of a movie's release dates worldwide. */
-  releaseDate(opts: NumericRange): this {
+  /** Movie only — filters on ANY of a movie's release dates worldwide. Values are "YYYY-MM-DD". */
+  releaseDate(opts: DateRange): this {
     return this.range("release_date", opts);
   }
-  /** Movie only — filters on TMDB's single "primary" release date. */
-  primaryReleaseDate(opts: NumericRange): this {
+  /** Movie only — filters on TMDB's single "primary" release date. Values are "YYYY-MM-DD". */
+  primaryReleaseDate(opts: DateRange): this {
     return this.range("primary_release_date", opts);
   }
-  /** TV only. */
-  firstAirDate(opts: NumericRange): this {
+  /** TV only. Values are "YYYY-MM-DD". */
+  firstAirDate(opts: DateRange): this {
     return this.range("first_air_date", opts);
   }
-  /** TV only. */
-  airDate(opts: NumericRange): this {
+  /** TV only. Values are "YYYY-MM-DD". */
+  airDate(opts: DateRange): this {
     return this.range("air_date", opts);
   }
   /** Movie only — ordinal certification range within certificationCountry(). */

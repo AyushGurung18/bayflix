@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ChevronDown } from "lucide-react";
+import { Search, ChevronDown, SlidersHorizontal, Network } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/lib/auth-context";
 import { useProfiles } from "@/lib/profile-context";
@@ -18,6 +18,7 @@ const NAV_LINKS = [
   { href: "/category/trending", label: "Trending" },
   { href: "/category/top-rated", label: "Top Rated" },
   { href: "/category/upcoming", label: "Upcoming" },
+  { href: "/discover", label: "Discover" },
   ...(isBayflixApiConfigured() ? [{ href: "/watchlist", label: "My List" }] : []),
 ];
 
@@ -159,6 +160,25 @@ export default function Navbar() {
                     onClick={() => setMenuOpen(false)}
                   >
                     Account Settings
+                  </Link>
+                  {/* Also in the mobile bottom bar's account menu, not just
+                      the desktop nav — the bottom tab bar's 5 fixed slots
+                      have no room for these, but this dropdown renders on
+                      every screen size, so it's the one place both desktop
+                      and mobile can always reach them. */}
+                  <Link
+                    href="/discover"
+                    className="flex items-center gap-2 px-4 py-2 text-neutral-200 transition hover:bg-white/5 md:hidden"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <SlidersHorizontal size={15} /> Advanced Search
+                  </Link>
+                  <Link
+                    href="/cast-graph"
+                    className="flex items-center gap-2 px-4 py-2 text-neutral-200 transition hover:bg-white/5"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <Network size={15} /> Cast Connections
                   </Link>
                   <button
                     onClick={handleLogout}

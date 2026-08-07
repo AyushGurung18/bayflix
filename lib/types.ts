@@ -168,6 +168,17 @@ export interface TmdbCombinedCreditItem extends TmdbItem {
   popularity?: number;
 }
 
+/** A `search/person` hit — deliberately its own shape rather than
+ * squeezed into TmdbItem/MediaType, since a person isn't a "movie" | "tv"
+ * media type and carries `profile_path`/`name` instead of `poster_path`/`title`. */
+export interface TmdbPersonSearchResult {
+  id: number;
+  name: string;
+  profile_path: string | null;
+  known_for_department?: string;
+  popularity?: number;
+}
+
 export interface TmdbPerson {
   id: number;
   name: string;

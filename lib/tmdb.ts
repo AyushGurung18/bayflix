@@ -3,9 +3,11 @@
 import type {
   MediaType,
   TmdbDetails,
+  TmdbGenre,
   TmdbItem,
   TmdbListResponse,
   TmdbPerson,
+  TmdbPersonSearchResult,
   TmdbReleaseDatesCountry,
   TmdbSeasonDetails,
   TmdbVideo,
@@ -129,8 +131,27 @@ export function searchMulti(query: string, page = 1) {
   return fetchTmdb<ListResult>("search/multi", { query, page, include_adult: false });
 }
 
+// search/multi lumps people in with movies/TV under the same media_type
+// union, which doesn't fit MediaType ("movie" | "tv" only) — search/person
+// is the dedicated endpoint for a person-only picker (cast/crew filters,
+// the cast-connection graph's actor inputs).
+export function searchPeople(query: string, page = 1) {
+  return fetchTmdb<TmdbListResponse<TmdbPersonSearchResult>>("search/person", {
+    query,
+    page,
+    include_adult: false,
+  });
+}
+
 export function fetchPersonDetails(id: number | string) {
   return fetchTmdb<TmdbPerson>(`person/${id}`, { append_to_response: "combined_credits" });
+}
+
+export function fetchMovieGenres() {
+  return fetchTmdb<{ genres: TmdbGenre[] }>("genre/movie/list");
+}
+export function fetchTVGenres() {
+  return fetchTmdb<{ genres: TmdbGenre[] }>("genre/tv/list");
 }
 
 // Picks the best trailer for a title: prefer an official YouTube "Trailer",
